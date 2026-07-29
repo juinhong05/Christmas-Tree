@@ -233,9 +233,9 @@ export default function Home() {
       const deltaTime = Math.max(16, now - lastPointerTime);
 
       rotation += deltaX * 0.012;
-      pitch = clamp(pitch + deltaY * 0.006, -0.62, 0.62);
+      pitch = clamp(pitch + deltaY * 0.014, -1.05, 1.05);
       spinVelocity = (deltaX / deltaTime) * 0.22;
-      pitchVelocity = (deltaY / deltaTime) * 0.11;
+      pitchVelocity = (deltaY / deltaTime) * 0.2;
       lastPointerX = event.clientX;
       lastPointerY = event.clientY;
       lastPointerTime = now;
@@ -273,14 +273,14 @@ export default function Home() {
 
       if (event.key === "ArrowUp") {
         event.preventDefault();
-        pitch = clamp(pitch - 0.16, -0.62, 0.62);
-        pitchVelocity = -0.012;
+        pitch = clamp(pitch - 0.28, -1.05, 1.05);
+        pitchVelocity = -0.018;
       }
 
       if (event.key === "ArrowDown") {
         event.preventDefault();
-        pitch = clamp(pitch + 0.16, -0.62, 0.62);
-        pitchVelocity = 0.012;
+        pitch = clamp(pitch + 0.28, -1.05, 1.05);
+        pitchVelocity = 0.018;
       }
     };
 
@@ -289,7 +289,7 @@ export default function Home() {
       if (!reduceMotion) {
         if (!isDragging) {
           rotation += spinVelocity;
-          pitch = clamp(pitch + pitchVelocity, -0.62, 0.62);
+          pitch = clamp(pitch + pitchVelocity, -1.05, 1.05);
           spinVelocity = spinVelocity * 0.985 + 0.0032 * 0.015;
           pitchVelocity *= 0.94;
         }
@@ -306,6 +306,8 @@ export default function Home() {
       const scale = treeHeight / 470;
       const pitchSin = Math.sin(pitch);
       const pitchCos = Math.cos(pitch);
+      const pitchAmount = Math.abs(pitch);
+      const pitchDirection = Math.sign(pitch);
 
       drawGlow(ctx, cx, baseY - treeHeight * 0.27, baseRadius * 1.35, "rgba(255,142,178,0.34)");
       drawGlow(ctx, cx, baseY - treeHeight * 0.06, baseRadius * 1.15, "rgba(255,255,255,0.34)");
@@ -330,9 +332,9 @@ export default function Home() {
         const wobble = Math.sin(frame / 120 + point.angle * 2 + point.ring) * 0.012;
         const angle = point.angle + wobble + rotation * 0.18;
         const ringWidth = width * ringWidths[point.ring] * 0.5;
-        const ringHeight = height * (0.055 + point.ring * 0.015) * (1 - Math.abs(pitch) * 0.34);
+        const ringHeight = height * (0.055 + point.ring * 0.015) * (1 - pitchAmount * 0.42);
         const x = cx + Math.cos(angle) * ringWidth + point.jitterX * 9 * scale;
-        const y = baseY + Math.sin(angle) * ringHeight + pitch * 34 * scale + point.jitterY * 5 * scale;
+        const y = baseY + Math.sin(angle) * ringHeight + pitch * 78 * scale + point.jitterY * 5 * scale;
         const frontBoost = Math.sin(angle) > 0 ? 0.18 : -0.06;
         ctx.fillStyle = `rgba(245,250,255,${Math.max(0.1, point.alpha + frontBoost)})`;
         ctx.beginPath();
@@ -354,10 +356,11 @@ export default function Home() {
         const localZ = Math.sin(spiral) * radius * 0.7;
         const tiltedY = localY * pitchCos - localZ * pitchSin;
         const tiltedZ = localY * pitchSin + localZ * pitchCos;
-        const perspective = clamp(1 + tiltedZ / (treeHeight * 3.4), 0.72, 1.32);
+        const perspective = clamp(1 + tiltedZ / (treeHeight * 2.1), 0.54, 1.58);
+        const tiltLift = pitchDirection * pitchAmount * (1 - point.height) * 118 * scale;
         const x = cx + localX * perspective;
-        const y = baseY + tiltedY * perspective;
-        const depth = 0.6 + clamp(tiltedZ / (baseRadius * 2.2), -0.28, 0.38);
+        const y = baseY + tiltedY * perspective + tiltLift;
+        const depth = 0.6 + clamp(tiltedZ / (baseRadius * 1.55), -0.42, 0.55);
         const pulse = (Math.sin(frame / 16 + point.twinkle) + 1) / 2;
         const spineFade = point.height > 0.86 ? 0.72 : 1;
         const size = point.size * scale * spineFade * perspective * (0.78 + depth * 0.42 + pulse * 0.3);
@@ -381,7 +384,7 @@ export default function Home() {
       const heartScale = Math.max(0.74, scale) * 1.05;
       const tiltedTopY = -treeHeight * pitchCos;
       const tiltedTopZ = -treeHeight * pitchSin;
-      const heartPerspective = clamp(1 + tiltedTopZ / (treeHeight * 3.4), 0.82, 1.18);
+      const heartPerspective = clamp(1 + tiltedTopZ / (treeHeight * 2.1), 0.72, 1.32);
       const heartY = baseY + tiltedTopY * heartPerspective - 20 * scale;
       drawGlow(ctx, cx, heartY, 44 * heartScale, "rgba(255,122,160,0.34)");
       drawHeartShape(ctx, cx, heartY + 2 * heartScale, 16 * heartScale, frame);

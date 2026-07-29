@@ -30,5 +30,5 @@ image quality and asset fidelity: the scene is rendered as live canvas particles
 copy and content: visible app-specific copy matches the reference text.
 primary interactions tested: drag-to-rotate interaction on horizontal and vertical axes, keyboard arrow rotation nudges, and default animated visual scene.
 console errors checked: yes, no browser console errors were reported.
-comparison history: first pass was too tall and narrow with a less legible heart; the tree cone was widened, the spine softened, the particle count increased, and the heart topper was redrawn before the final comparison. A later interaction pass added drag rotation and confirmed frame changes after dragging. The latest pass added up/down pitch and confirmed visible frame changes after vertical dragging.
+comparison history: first pass was too tall and narrow with a less legible heart; the tree cone was widened, the spine softened, the particle count increased, and the heart topper was redrawn before the final comparison. A later interaction pass added drag rotation and confirmed frame changes after dragging. The latest pass strengthened up/down pitch so vertical dragging visibly reshapes the cone and base rings, then confirmed visible frame changes after vertical dragging.
 final result: passed
