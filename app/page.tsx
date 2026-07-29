@@ -189,7 +189,7 @@ export default function Home() {
     let lastPointerX = 0;
     let lastPointerY = 0;
     let lastPointerTime = 0;
-    const maxPitch = 1.36;
+    const maxPitch = 0.86;
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const treeParticles = createTreeParticles(6400);
     const ringParticles = createRingParticles(3300);
@@ -234,7 +234,7 @@ export default function Home() {
       const deltaTime = Math.max(16, now - lastPointerTime);
 
       rotation += deltaX * 0.012;
-      pitch = clamp(pitch - deltaY * 0.012, -maxPitch, maxPitch);
+      pitch = clamp(pitch - deltaY * 0.009, 0, maxPitch);
       spinVelocity = (deltaX / deltaTime) * 0.22;
       pitchVelocity = (-deltaY / deltaTime) * 0.18;
       lastPointerX = event.clientX;
@@ -274,13 +274,13 @@ export default function Home() {
 
       if (event.key === "ArrowUp") {
         event.preventDefault();
-        pitch = clamp(pitch + 0.28, -maxPitch, maxPitch);
+        pitch = clamp(pitch + 0.18, 0, maxPitch);
         pitchVelocity = 0.018;
       }
 
       if (event.key === "ArrowDown") {
         event.preventDefault();
-        pitch = clamp(pitch - 0.28, -maxPitch, maxPitch);
+        pitch = clamp(pitch - 0.18, 0, maxPitch);
         pitchVelocity = -0.018;
       }
     };
@@ -290,7 +290,7 @@ export default function Home() {
       if (!reduceMotion) {
         if (!isDragging) {
           rotation += spinVelocity;
-          pitch = clamp(pitch + pitchVelocity, -maxPitch, maxPitch);
+          pitch = clamp(pitch + pitchVelocity, 0, maxPitch);
           spinVelocity = spinVelocity * 0.985 + 0.0032 * 0.015;
           pitchVelocity *= 0.94;
         }
@@ -441,7 +441,7 @@ export default function Home() {
 
   return (
     <main className="particle-stage" aria-label="Particle Christmas tree scene">
-      <canvas ref={canvasRef} className="particle-canvas" aria-label="Drag in any direction to rotate the particle Christmas tree" tabIndex={0} />
+      <canvas ref={canvasRef} className="particle-canvas" aria-label="Drag left or right to spin the particle Christmas tree; drag upward for a limited top view" tabIndex={0} />
       <p className="christmas-script">Merry Christmas</p>
       <h1 className="sr-only">Merry Christmas particle tree</h1>
     </main>

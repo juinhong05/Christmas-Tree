@@ -33,6 +33,8 @@ implementation-*.png
 rotation-*.png
 pitch-*.png
 camera-*.png
+limited-*.png
+down-disabled-*.png
 
 # env files (can opt-in for committing if needed)
 .env*
