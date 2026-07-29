@@ -11,6 +11,9 @@ type TreeParticle = {
   twinkle: number;
   tone: number;
   branch: number;
+  tierStrength: number;
+  edgeBias: number;
+  coreGlow: number;
 };
 
 type RingParticle = {
@@ -81,19 +84,32 @@ function drawHeartShape(ctx: CanvasRenderingContext2D, x: number, y: number, siz
 
 function createTreeParticles(count: number) {
   const particles: TreeParticle[] = [];
+  const branchTiers = [0.07, 0.17, 0.28, 0.4, 0.52, 0.64, 0.75, 0.85, 0.94];
+
   for (let i = 0; i < count; i += 1) {
-    const height = Math.pow(Math.random(), 0.72);
-    const cone = Math.pow(1 - height, 0.9);
-    const tier = 0.72 + Math.pow(Math.max(0, Math.sin(height * Math.PI * 8.4)), 1.8) * 0.38;
+    const fromBranchTier = Math.random() < 0.64;
+    const tierCenter = branchTiers[Math.floor(random(0, branchTiers.length))];
+    const height = fromBranchTier
+      ? clamp(tierCenter + random(-0.014, 0.024) * (1 - tierCenter * 0.35), 0.025, 0.985)
+      : Math.pow(Math.random(), 0.72);
+    const cone = Math.pow(1 - height, 0.86);
+    const tierWave = Math.pow(Math.max(0, Math.sin(height * Math.PI * 8.8)), 2.2);
+    const coreGlow = Math.random() < 0.13 ? random(0.42, 1) : 0;
+    const tierStrength = fromBranchTier ? random(0.62, 1) : tierWave * random(0.2, 0.56);
+    const edgeBias = coreGlow > 0 ? random(0.02, 0.2) : fromBranchTier ? random(0.54, 1.08) : Math.pow(Math.random(), 0.82);
+
     particles.push({
       height,
       angle: random(0, Math.PI * 2),
-      radius: cone * tier * random(0.08, 1),
-      size: random(0.45, 1.45),
-      alpha: random(0.42, 0.95),
+      radius: cone * (0.76 + tierWave * 0.22 + tierStrength * 0.14) * edgeBias,
+      size: random(0.42, 1.38) * (1 + tierStrength * 0.18 + coreGlow * 0.12),
+      alpha: random(0.38, 0.95),
       twinkle: random(0, Math.PI * 2),
-      tone: Math.random(),
-      branch: random(-0.02, 0.02),
+      tone: coreGlow > 0 ? random(0.72, 1) : Math.random(),
+      branch: random(-0.016, 0.022),
+      tierStrength,
+      edgeBias,
+      coreGlow,
     });
   }
   return particles;
@@ -153,14 +169,14 @@ function createHeartParticles(count: number) {
   return particles;
 }
 
-function particleColor(tone: number, pulse: number) {
+function particleColor(tone: number, pulse: number, alpha: number) {
   if (tone > 0.78) {
-    return `rgba(255,255,255,${0.72 + pulse * 0.22})`;
+    return `rgba(255,255,255,${clamp((0.56 + pulse * 0.32) * alpha, 0.12, 0.98)})`;
   }
   if (tone > 0.42) {
-    return `rgba(255,214,226,${0.58 + pulse * 0.28})`;
+    return `rgba(255,214,226,${clamp((0.48 + pulse * 0.34) * alpha, 0.1, 0.96)})`;
   }
-  return `rgba(255,118,154,${0.5 + pulse * 0.24})`;
+  return `rgba(255,118,154,${clamp((0.42 + pulse * 0.32) * alpha, 0.08, 0.9)})`;
 }
 
 export default function Home() {
@@ -191,7 +207,7 @@ export default function Home() {
     let lastPointerTime = 0;
     const maxPitch = 0.86;
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const treeParticles = createTreeParticles(6400);
+    const treeParticles = createTreeParticles(7600);
     const ringParticles = createRingParticles(3300);
     const heartParticles = createHeartParticles(260);
     let snowParticles: SnowParticle[] = [];
@@ -362,21 +378,37 @@ export default function Home() {
       ctx.globalCompositeOperation = "lighter";
 
       for (const point of treeParticles) {
-        const branchWave = Math.sin(point.height * Math.PI * 11 + point.angle * 0.6);
+        const branchWave = Math.sin(point.height * Math.PI * 12.8 + point.angle * 0.6);
         const spiral = point.angle + point.height * 14.2 + frame * 0.008 + rotation;
         const breathing = 1 + Math.sin(frame / 90 + point.twinkle) * 0.025;
+        const layerBreath = 1 + point.tierStrength * Math.sin(frame / 80 + point.twinkle) * 0.035;
         const topSpread = point.height > 0.82 ? (point.height - 0.82) * 0.13 : 0;
-        const radius = baseRadius * (point.radius + point.branch + branchWave * 0.026 + topSpread) * breathing;
+        const radius =
+          baseRadius *
+          (point.radius + point.branch + branchWave * (0.018 + point.tierStrength * 0.028) + topSpread) *
+          breathing *
+          layerBreath;
         const localX = Math.cos(spiral) * radius;
-        const localY = -point.height * treeHeight + Math.sin(spiral * 2.1) * 6.5 * scale;
+        const branchSag = point.tierStrength * Math.pow(point.edgeBias, 1.3) * 12 * scale;
+        const localY =
+          -point.height * treeHeight +
+          branchSag +
+          Math.sin(spiral * 2.1) * (4.8 + point.tierStrength * 3.2) * scale;
         const localZ = Math.sin(spiral) * radius;
         const projected = projectPoint(localX, localY, localZ);
         const depth = 0.6 + clamp(projected.z / (baseRadius * 1.55), -0.42, 0.55);
         const pulse = (Math.sin(frame / 16 + point.twinkle) + 1) / 2;
+        const depthAlpha = clamp(0.68 + projected.z / (baseRadius * 1.42), 0.34, 1.16);
+        const layerAlpha = clamp(point.alpha * (0.72 + point.tierStrength * 0.32 + point.coreGlow * 0.18) * depthAlpha, 0.12, 1);
         const spineFade = point.height > 0.86 ? 0.72 : 1;
-        const size = point.size * scale * spineFade * projected.perspective * (0.78 + depth * 0.42 + pulse * 0.3);
+        const size =
+          point.size *
+          scale *
+          spineFade *
+          projected.perspective *
+          (0.64 + depth * 0.38 + pulse * 0.28 + point.tierStrength * 0.26 + point.coreGlow * 0.24);
 
-        ctx.fillStyle = particleColor(point.tone, pulse * point.alpha);
+        ctx.fillStyle = particleColor(point.tone, pulse, layerAlpha);
         ctx.beginPath();
         ctx.arc(projected.x, projected.y, size, 0, Math.PI * 2);
         ctx.fill();

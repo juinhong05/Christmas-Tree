@@ -7,6 +7,7 @@
 **Implementation Checklist**
 - Replaced the drawn tree with a black-stage particle scene.
 - Matched the pink-white particle Christmas tree, snow field, glowing base, circular light rings, left-side script greeting, and heart topper.
+- Added stronger tree hierarchy with brighter branch shelves, subtle darker gaps, depth-based sparkle, and a clearer glowing center.
 - Checked the browser-rendered page for console errors and verified drag rotation changes the scene on the horizontal axis, upward drag opens a capped camera top view, and downward drag does not move below the front view.
 
 **Follow-up Polish**
@@ -32,4 +33,5 @@ primary interactions tested: drag-to-spin horizontally, capped drag-up camera or
 console errors checked: yes, no browser console errors were reported.
 comparison history: first pass was too tall and narrow with a less legible heart; the tree cone was widened, the spine softened, the particle count increased, and the heart topper was redrawn before the final comparison. A later interaction pass added drag rotation and confirmed frame changes after dragging. The latest pass replaced object tilt with camera-orbit pitch, so dragging upward moves the viewpoint above the scene and opens the rings into a top view.
 interaction limit history: the latest adjustment removed downward camera movement from the front view and capped upward camera pitch so the tree remains readable instead of becoming only a rotating dot cluster.
+hierarchy pass: the particle distribution now clusters around stacked branch tiers, with branch-edge particles slightly larger/brighter and center particles glowing more cleanly so the tree reads as layered rather than flat.
 final result: passed
