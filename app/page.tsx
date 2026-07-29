@@ -189,6 +189,7 @@ export default function Home() {
     let lastPointerX = 0;
     let lastPointerY = 0;
     let lastPointerTime = 0;
+    const maxPitch = 1.36;
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const treeParticles = createTreeParticles(6400);
     const ringParticles = createRingParticles(3300);
@@ -233,9 +234,9 @@ export default function Home() {
       const deltaTime = Math.max(16, now - lastPointerTime);
 
       rotation += deltaX * 0.012;
-      pitch = clamp(pitch + deltaY * 0.014, -1.05, 1.05);
+      pitch = clamp(pitch - deltaY * 0.012, -maxPitch, maxPitch);
       spinVelocity = (deltaX / deltaTime) * 0.22;
-      pitchVelocity = (deltaY / deltaTime) * 0.2;
+      pitchVelocity = (-deltaY / deltaTime) * 0.18;
       lastPointerX = event.clientX;
       lastPointerY = event.clientY;
       lastPointerTime = now;
@@ -273,14 +274,14 @@ export default function Home() {
 
       if (event.key === "ArrowUp") {
         event.preventDefault();
-        pitch = clamp(pitch - 0.28, -1.05, 1.05);
-        pitchVelocity = -0.018;
+        pitch = clamp(pitch + 0.28, -maxPitch, maxPitch);
+        pitchVelocity = 0.018;
       }
 
       if (event.key === "ArrowDown") {
         event.preventDefault();
-        pitch = clamp(pitch + 0.28, -1.05, 1.05);
-        pitchVelocity = 0.018;
+        pitch = clamp(pitch - 0.28, -maxPitch, maxPitch);
+        pitchVelocity = -0.018;
       }
     };
 
@@ -289,7 +290,7 @@ export default function Home() {
       if (!reduceMotion) {
         if (!isDragging) {
           rotation += spinVelocity;
-          pitch = clamp(pitch + pitchVelocity, -1.05, 1.05);
+          pitch = clamp(pitch + pitchVelocity, -maxPitch, maxPitch);
           spinVelocity = spinVelocity * 0.985 + 0.0032 * 0.015;
           pitchVelocity *= 0.94;
         }
@@ -306,11 +307,25 @@ export default function Home() {
       const scale = treeHeight / 470;
       const pitchSin = Math.sin(pitch);
       const pitchCos = Math.cos(pitch);
-      const pitchAmount = Math.abs(pitch);
-      const pitchDirection = Math.sign(pitch);
+      const pitchAmount = Math.abs(pitchSin);
+      const viewCenterY = baseY - treeHeight * 0.38 * pitchAmount;
+      const projectPoint = (localX: number, localY: number, localZ: number) => {
+        const cameraY = localY * pitchCos + localZ * pitchSin + localZ * pitchCos * 0.18;
+        const cameraZ = localZ * pitchCos - localY * pitchSin;
+        const perspective = clamp(1 + cameraZ / (treeHeight * 2.35), 0.56, 1.62);
 
-      drawGlow(ctx, cx, baseY - treeHeight * 0.27, baseRadius * 1.35, "rgba(255,142,178,0.34)");
-      drawGlow(ctx, cx, baseY - treeHeight * 0.06, baseRadius * 1.15, "rgba(255,255,255,0.34)");
+        return {
+          x: cx + localX * perspective,
+          y: viewCenterY + cameraY * perspective,
+          z: cameraZ,
+          perspective,
+        };
+      };
+      const basePoint = projectPoint(0, 0, 0);
+      const corePoint = projectPoint(0, -treeHeight * 0.34, 0);
+
+      drawGlow(ctx, cx, corePoint.y, baseRadius * (1.25 - pitchAmount * 0.28), "rgba(255,142,178,0.34)");
+      drawGlow(ctx, cx, basePoint.y - treeHeight * 0.06 * pitchCos, baseRadius * (1.08 + pitchAmount * 0.18), "rgba(255,255,255,0.34)");
 
       for (const flake of snowParticles) {
         if (!reduceMotion) {
@@ -332,13 +347,14 @@ export default function Home() {
         const wobble = Math.sin(frame / 120 + point.angle * 2 + point.ring) * 0.012;
         const angle = point.angle + wobble + rotation * 0.18;
         const ringWidth = width * ringWidths[point.ring] * 0.5;
-        const ringHeight = height * (0.055 + point.ring * 0.015) * (1 - pitchAmount * 0.42);
-        const x = cx + Math.cos(angle) * ringWidth + point.jitterX * 9 * scale;
-        const y = baseY + Math.sin(angle) * ringHeight + pitch * 78 * scale + point.jitterY * 5 * scale;
+        const ringDepth = ringWidth * 0.52;
+        const projected = projectPoint(Math.cos(angle) * ringWidth, 0, Math.sin(angle) * ringDepth);
+        const x = projected.x + point.jitterX * 9 * scale;
+        const y = projected.y + point.jitterY * 5 * scale;
         const frontBoost = Math.sin(angle) > 0 ? 0.18 : -0.06;
         ctx.fillStyle = `rgba(245,250,255,${Math.max(0.1, point.alpha + frontBoost)})`;
         ctx.beginPath();
-        ctx.arc(x, y, point.size * scale, 0, Math.PI * 2);
+        ctx.arc(x, y, point.size * scale * projected.perspective, 0, Math.PI * 2);
         ctx.fill();
       }
 
@@ -353,51 +369,44 @@ export default function Home() {
         const radius = baseRadius * (point.radius + point.branch + branchWave * 0.026 + topSpread) * breathing;
         const localX = Math.cos(spiral) * radius;
         const localY = -point.height * treeHeight + Math.sin(spiral * 2.1) * 6.5 * scale;
-        const localZ = Math.sin(spiral) * radius * 0.7;
-        const tiltedY = localY * pitchCos - localZ * pitchSin;
-        const tiltedZ = localY * pitchSin + localZ * pitchCos;
-        const perspective = clamp(1 + tiltedZ / (treeHeight * 2.1), 0.54, 1.58);
-        const tiltLift = pitchDirection * pitchAmount * (1 - point.height) * 118 * scale;
-        const x = cx + localX * perspective;
-        const y = baseY + tiltedY * perspective + tiltLift;
-        const depth = 0.6 + clamp(tiltedZ / (baseRadius * 1.55), -0.42, 0.55);
+        const localZ = Math.sin(spiral) * radius;
+        const projected = projectPoint(localX, localY, localZ);
+        const depth = 0.6 + clamp(projected.z / (baseRadius * 1.55), -0.42, 0.55);
         const pulse = (Math.sin(frame / 16 + point.twinkle) + 1) / 2;
         const spineFade = point.height > 0.86 ? 0.72 : 1;
-        const size = point.size * scale * spineFade * perspective * (0.78 + depth * 0.42 + pulse * 0.3);
+        const size = point.size * scale * spineFade * projected.perspective * (0.78 + depth * 0.42 + pulse * 0.3);
 
         ctx.fillStyle = particleColor(point.tone, pulse * point.alpha);
         ctx.beginPath();
-        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.arc(projected.x, projected.y, size, 0, Math.PI * 2);
         ctx.fill();
 
         if (point.tone > 0.93 && pulse > 0.62) {
           ctx.fillStyle = `rgba(255,255,255,${0.28 * pulse})`;
           ctx.beginPath();
-          ctx.arc(x, y, size * 2.8, 0, Math.PI * 2);
+          ctx.arc(projected.x, projected.y, size * 2.8, 0, Math.PI * 2);
           ctx.fill();
         }
       }
 
-      drawGlow(ctx, cx, baseY - treeHeight * 0.05, baseRadius * 0.56, "rgba(255,255,255,0.34)");
-      drawGlow(ctx, cx, baseY - treeHeight * 0.48, baseRadius * 0.5, "rgba(255,164,190,0.34)");
+      drawGlow(ctx, cx, basePoint.y - treeHeight * 0.05 * pitchCos, baseRadius * 0.56, "rgba(255,255,255,0.34)");
+      drawGlow(ctx, cx, corePoint.y - treeHeight * 0.14 * pitchCos, baseRadius * 0.5, "rgba(255,164,190,0.34)");
 
       const heartScale = Math.max(0.74, scale) * 1.05;
-      const tiltedTopY = -treeHeight * pitchCos;
-      const tiltedTopZ = -treeHeight * pitchSin;
-      const heartPerspective = clamp(1 + tiltedTopZ / (treeHeight * 2.1), 0.72, 1.32);
-      const heartY = baseY + tiltedTopY * heartPerspective - 20 * scale;
-      drawGlow(ctx, cx, heartY, 44 * heartScale, "rgba(255,122,160,0.34)");
-      drawHeartShape(ctx, cx, heartY + 2 * heartScale, 16 * heartScale, frame);
+      const heartPoint = projectPoint(0, -treeHeight - 20 * scale, 0);
+      drawGlow(ctx, cx, heartPoint.y, 44 * heartScale * heartPoint.perspective, "rgba(255,122,160,0.34)");
+      drawHeartShape(ctx, cx, heartPoint.y + 2 * heartScale, 16 * heartScale * heartPoint.perspective, frame);
       for (const heart of heartParticles) {
         const pulse = (Math.sin(frame / 12 + heart.twinkle) + 1) / 2;
         const heartAngle = rotation * 0.72;
         const heartX = heart.x * Math.cos(heartAngle) + Math.sin(heartAngle) * heart.size * 0.36;
+        const heartSpark = projectPoint(heartX * heartScale, -treeHeight - 20 * scale + heart.y * heartScale, 0);
         ctx.fillStyle = `rgba(255,226,235,${heart.alpha * 0.72})`;
         ctx.beginPath();
         ctx.arc(
-          cx + heartX * heartScale,
-          heartY + heart.y * heartScale,
-          heart.size * heartScale * 0.72 * (0.8 + pulse * 0.32),
+          heartSpark.x,
+          heartSpark.y,
+          heart.size * heartScale * heartSpark.perspective * 0.72 * (0.8 + pulse * 0.32),
           0,
           Math.PI * 2,
         );
