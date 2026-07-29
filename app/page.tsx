@@ -44,6 +44,10 @@ function random(min: number, max: number) {
   return min + Math.random() * (max - min);
 }
 
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
+}
+
 function drawGlow(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, color: string) {
   const glow = ctx.createRadialGradient(x, y, 0, x, y, radius);
   glow.addColorStop(0, color);
@@ -178,9 +182,12 @@ export default function Home() {
     let width = 0;
     let height = 0;
     let rotation = 0;
+    let pitch = 0;
     let spinVelocity = 0.0032;
+    let pitchVelocity = 0;
     let isDragging = false;
     let lastPointerX = 0;
+    let lastPointerY = 0;
     let lastPointerTime = 0;
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const treeParticles = createTreeParticles(6400);
@@ -207,8 +214,10 @@ export default function Home() {
     const startRotation = (event: PointerEvent) => {
       isDragging = true;
       lastPointerX = event.clientX;
+      lastPointerY = event.clientY;
       lastPointerTime = performance.now();
       spinVelocity = 0;
+      pitchVelocity = 0;
       setDraggingClass(true);
       canvas.setPointerCapture(event.pointerId);
     };
@@ -220,10 +229,15 @@ export default function Home() {
 
       const now = performance.now();
       const deltaX = event.clientX - lastPointerX;
+      const deltaY = event.clientY - lastPointerY;
       const deltaTime = Math.max(16, now - lastPointerTime);
+
       rotation += deltaX * 0.012;
+      pitch = clamp(pitch + deltaY * 0.006, -0.62, 0.62);
       spinVelocity = (deltaX / deltaTime) * 0.22;
+      pitchVelocity = (deltaY / deltaTime) * 0.11;
       lastPointerX = event.clientX;
+      lastPointerY = event.clientY;
       lastPointerTime = now;
     };
 
@@ -246,13 +260,27 @@ export default function Home() {
 
     const rotateWithKeyboard = (event: KeyboardEvent) => {
       if (event.key === "ArrowLeft") {
+        event.preventDefault();
         rotation -= 0.28;
         spinVelocity = -0.025;
       }
 
       if (event.key === "ArrowRight") {
+        event.preventDefault();
         rotation += 0.28;
         spinVelocity = 0.025;
+      }
+
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        pitch = clamp(pitch - 0.16, -0.62, 0.62);
+        pitchVelocity = -0.012;
+      }
+
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        pitch = clamp(pitch + 0.16, -0.62, 0.62);
+        pitchVelocity = 0.012;
       }
     };
 
@@ -261,7 +289,9 @@ export default function Home() {
       if (!reduceMotion) {
         if (!isDragging) {
           rotation += spinVelocity;
+          pitch = clamp(pitch + pitchVelocity, -0.62, 0.62);
           spinVelocity = spinVelocity * 0.985 + 0.0032 * 0.015;
+          pitchVelocity *= 0.94;
         }
       }
       ctx.clearRect(0, 0, width, height);
@@ -273,8 +303,9 @@ export default function Home() {
       const baseY = height * 0.82;
       const treeHeight = Math.min(height * 0.62, width * 0.72, 460);
       const baseRadius = Math.min(width * 0.3, treeHeight * 0.52);
-      const topY = baseY - treeHeight;
       const scale = treeHeight / 470;
+      const pitchSin = Math.sin(pitch);
+      const pitchCos = Math.cos(pitch);
 
       drawGlow(ctx, cx, baseY - treeHeight * 0.27, baseRadius * 1.35, "rgba(255,142,178,0.34)");
       drawGlow(ctx, cx, baseY - treeHeight * 0.06, baseRadius * 1.15, "rgba(255,255,255,0.34)");
@@ -299,9 +330,9 @@ export default function Home() {
         const wobble = Math.sin(frame / 120 + point.angle * 2 + point.ring) * 0.012;
         const angle = point.angle + wobble + rotation * 0.18;
         const ringWidth = width * ringWidths[point.ring] * 0.5;
-        const ringHeight = height * (0.055 + point.ring * 0.015);
+        const ringHeight = height * (0.055 + point.ring * 0.015) * (1 - Math.abs(pitch) * 0.34);
         const x = cx + Math.cos(angle) * ringWidth + point.jitterX * 9 * scale;
-        const y = baseY + Math.sin(angle) * ringHeight + point.jitterY * 5 * scale;
+        const y = baseY + Math.sin(angle) * ringHeight + pitch * 34 * scale + point.jitterY * 5 * scale;
         const frontBoost = Math.sin(angle) > 0 ? 0.18 : -0.06;
         ctx.fillStyle = `rgba(245,250,255,${Math.max(0.1, point.alpha + frontBoost)})`;
         ctx.beginPath();
@@ -318,12 +349,18 @@ export default function Home() {
         const breathing = 1 + Math.sin(frame / 90 + point.twinkle) * 0.025;
         const topSpread = point.height > 0.82 ? (point.height - 0.82) * 0.13 : 0;
         const radius = baseRadius * (point.radius + point.branch + branchWave * 0.026 + topSpread) * breathing;
-        const x = cx + Math.cos(spiral) * radius;
-        const y = baseY - point.height * treeHeight + Math.sin(spiral * 2.1) * 6.5 * scale;
-        const depth = 0.6 + Math.sin(spiral) * 0.3;
+        const localX = Math.cos(spiral) * radius;
+        const localY = -point.height * treeHeight + Math.sin(spiral * 2.1) * 6.5 * scale;
+        const localZ = Math.sin(spiral) * radius * 0.7;
+        const tiltedY = localY * pitchCos - localZ * pitchSin;
+        const tiltedZ = localY * pitchSin + localZ * pitchCos;
+        const perspective = clamp(1 + tiltedZ / (treeHeight * 3.4), 0.72, 1.32);
+        const x = cx + localX * perspective;
+        const y = baseY + tiltedY * perspective;
+        const depth = 0.6 + clamp(tiltedZ / (baseRadius * 2.2), -0.28, 0.38);
         const pulse = (Math.sin(frame / 16 + point.twinkle) + 1) / 2;
         const spineFade = point.height > 0.86 ? 0.72 : 1;
-        const size = point.size * scale * spineFade * (0.78 + depth * 0.42 + pulse * 0.3);
+        const size = point.size * scale * spineFade * perspective * (0.78 + depth * 0.42 + pulse * 0.3);
 
         ctx.fillStyle = particleColor(point.tone, pulse * point.alpha);
         ctx.beginPath();
@@ -342,7 +379,10 @@ export default function Home() {
       drawGlow(ctx, cx, baseY - treeHeight * 0.48, baseRadius * 0.5, "rgba(255,164,190,0.34)");
 
       const heartScale = Math.max(0.74, scale) * 1.05;
-      const heartY = topY - 20 * scale;
+      const tiltedTopY = -treeHeight * pitchCos;
+      const tiltedTopZ = -treeHeight * pitchSin;
+      const heartPerspective = clamp(1 + tiltedTopZ / (treeHeight * 3.4), 0.82, 1.18);
+      const heartY = baseY + tiltedTopY * heartPerspective - 20 * scale;
       drawGlow(ctx, cx, heartY, 44 * heartScale, "rgba(255,122,160,0.34)");
       drawHeartShape(ctx, cx, heartY + 2 * heartScale, 16 * heartScale, frame);
       for (const heart of heartParticles) {
@@ -389,7 +429,7 @@ export default function Home() {
 
   return (
     <main className="particle-stage" aria-label="Particle Christmas tree scene">
-      <canvas ref={canvasRef} className="particle-canvas" aria-label="Rotatable particle Christmas tree" tabIndex={0} />
+      <canvas ref={canvasRef} className="particle-canvas" aria-label="Drag in any direction to rotate the particle Christmas tree" tabIndex={0} />
       <p className="christmas-script">Merry Christmas</p>
       <h1 className="sr-only">Merry Christmas particle tree</h1>
     </main>

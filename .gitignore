@@ -31,6 +31,7 @@ dev.*.log
 design-comparison.png
 implementation-*.png
 rotation-*.png
+pitch-*.png
 
 # env files (can opt-in for committing if needed)
 .env*
