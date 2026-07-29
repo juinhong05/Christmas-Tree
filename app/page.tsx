@@ -1,201 +1,166 @@
 "use client";
 
-import type { ChangeEvent } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
-type Flake = {
+type TreeParticle = {
+  height: number;
+  angle: number;
+  radius: number;
+  size: number;
+  alpha: number;
+  twinkle: number;
+  tone: number;
+  branch: number;
+};
+
+type RingParticle = {
+  ring: number;
+  angle: number;
+  jitterX: number;
+  jitterY: number;
+  size: number;
+  alpha: number;
+};
+
+type SnowParticle = {
   x: number;
   y: number;
-  radius: number;
+  size: number;
   speed: number;
   drift: number;
+  alpha: number;
   phase: number;
 };
 
-type Sparkle = {
+type HeartParticle = {
   x: number;
   y: number;
-  radius: number;
-  phase: number;
-  color: string;
+  size: number;
+  alpha: number;
+  twinkle: number;
 };
 
-const ornaments = [
-  { x: -50, y: -130, r: 11, color: "#ff4d6d" },
-  { x: 52, y: -96, r: 12, color: "#74d7ff" },
-  { x: -95, y: -36, r: 11, color: "#ffd166" },
-  { x: 92, y: 6, r: 10, color: "#ff9f1c" },
-  { x: -140, y: 88, r: 12, color: "#e0aaff" },
-  { x: 8, y: 120, r: 11, color: "#ff4d6d" },
-  { x: 142, y: 104, r: 13, color: "#80ed99" },
-  { x: -44, y: 178, r: 12, color: "#9bf6ff" },
-  { x: 90, y: 196, r: 10, color: "#ffd166" },
-];
-
-const wish =
-  "\u4ece\u5c4f\u5e55\u5230\u661f\u5149\uff0c\u4ece\u4ee3\u7801\u5230\u6d6a\u6f2b\uff0c\u8fd9\u68f5\u5723\u8bde\u6811\u613f\u70b9\u4eae\u4f60\u7684\u51ac\u65e5\uff0c\u4e5f\u70b9\u4eae\u4f60\u5fc3\u91cc\u7684\u5c0f\u4e16\u754c\u3002";
-
-function rand(min: number, max: number) {
+function random(min: number, max: number) {
   return min + Math.random() * (max - min);
 }
 
-function drawTriangle(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  color: string,
-) {
-  ctx.fillStyle = color;
+function drawGlow(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, color: string) {
+  const glow = ctx.createRadialGradient(x, y, 0, x, y, radius);
+  glow.addColorStop(0, color);
+  glow.addColorStop(0.42, color.replace("0.34", "0.12"));
+  glow.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = glow;
   ctx.beginPath();
-  ctx.moveTo(x, y - height / 2);
-  ctx.lineTo(x - width / 2, y + height / 2);
-  ctx.lineTo(x + width / 2, y + height / 2);
-  ctx.closePath();
+  ctx.arc(x, y, radius, 0, Math.PI * 2);
   ctx.fill();
 }
 
-function drawStar(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  outer: number,
-  inner: number,
-  color: string,
-) {
-  ctx.fillStyle = color;
-  ctx.beginPath();
-  for (let i = 0; i < 10; i += 1) {
-    const angle = -Math.PI / 2 + (i * Math.PI) / 5;
-    const radius = i % 2 === 0 ? outer : inner;
-    const px = x + Math.cos(angle) * radius;
-    const py = y + Math.sin(angle) * radius;
-    if (i === 0) {
-      ctx.moveTo(px, py);
-    } else {
-      ctx.lineTo(px, py);
-    }
-  }
-  ctx.closePath();
-  ctx.fill();
-}
+function drawHeartShape(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, frame: number) {
+  const pulse = 1 + Math.sin(frame / 24) * 0.035;
+  const s = size * pulse;
+  const gradient = ctx.createRadialGradient(x - s * 0.18, y - s * 0.22, 0, x, y, s * 1.2);
+  gradient.addColorStop(0, "rgba(255,255,255,0.95)");
+  gradient.addColorStop(0.38, "rgba(255,204,218,0.96)");
+  gradient.addColorStop(1, "rgba(255,104,145,0.86)");
 
-function drawGarland(
-  ctx: CanvasRenderingContext2D,
-  cx: number,
-  y: number,
-  width: number,
-  color: string,
-  phase: number,
-  scale: number,
-) {
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 3 * scale;
-  ctx.lineCap = "round";
+  ctx.fillStyle = gradient;
   ctx.beginPath();
-  for (let i = 0; i < 80; i += 1) {
-    const p = i / 79;
-    const x = cx + (p - 0.5) * width;
-    const wave = Math.sin(p * Math.PI * 4 + phase) * 12 * scale;
-    if (i === 0) {
-      ctx.moveTo(x, y + wave);
-    } else {
-      ctx.lineTo(x, y + wave);
-    }
-  }
+  ctx.moveTo(x, y + s * 0.62);
+  ctx.bezierCurveTo(x - s * 1.18, y - s * 0.06, x - s * 0.78, y - s * 0.98, x, y - s * 0.44);
+  ctx.bezierCurveTo(x + s * 0.78, y - s * 0.98, x + s * 1.18, y - s * 0.06, x, y + s * 0.62);
+  ctx.fill();
+
+  ctx.strokeStyle = "rgba(255,255,255,0.62)";
+  ctx.lineWidth = Math.max(1, size * 0.07);
   ctx.stroke();
 }
 
-function drawHeart(ctx: CanvasRenderingContext2D, x: number, y: number, size: number) {
-  ctx.fillStyle = "#ff4d6d";
-  ctx.beginPath();
-  ctx.moveTo(x, y + size * 0.35);
-  ctx.bezierCurveTo(x - size * 1.35, y - size * 0.5, x - size * 0.85, y - size * 1.6, x, y - size * 0.75);
-  ctx.bezierCurveTo(x + size * 0.85, y - size * 1.6, x + size * 1.35, y - size * 0.5, x, y + size * 0.35);
-  ctx.fill();
+function createTreeParticles(count: number) {
+  const particles: TreeParticle[] = [];
+  for (let i = 0; i < count; i += 1) {
+    const height = Math.pow(Math.random(), 0.72);
+    const cone = Math.pow(1 - height, 0.9);
+    const tier = 0.72 + Math.pow(Math.max(0, Math.sin(height * Math.PI * 8.4)), 1.8) * 0.38;
+    particles.push({
+      height,
+      angle: random(0, Math.PI * 2),
+      radius: cone * tier * random(0.08, 1),
+      size: random(0.45, 1.45),
+      alpha: random(0.42, 0.95),
+      twinkle: random(0, Math.PI * 2),
+      tone: Math.random(),
+      branch: random(-0.02, 0.02),
+    });
+  }
+  return particles;
 }
 
-function drawTree(ctx: CanvasRenderingContext2D, width: number, height: number, frame: number) {
-  const scale = Math.min(width / 980, height / 820, 1.12);
-  const cx = width * 0.5;
-  const ground = height * 0.78;
-  const top = ground - 510 * scale;
-
-  const sky = ctx.createLinearGradient(0, 0, 0, height);
-  sky.addColorStop(0, "#07111f");
-  sky.addColorStop(0.55, "#10233c");
-  sky.addColorStop(1, "#16354b");
-  ctx.fillStyle = sky;
-  ctx.fillRect(0, 0, width, height);
-
-  ctx.fillStyle = "rgba(255,255,255,0.08)";
-  for (let i = 0; i < 22; i += 1) {
-    const x = ((i * 137) % width) + Math.sin(frame / 90 + i) * 12;
-    const y = 38 + ((i * 59) % Math.max(140, height * 0.46));
-    ctx.beginPath();
-    ctx.arc(x, y, i % 3 === 0 ? 1.8 : 1.1, 0, Math.PI * 2);
-    ctx.fill();
+function createRingParticles(count: number) {
+  const particles: RingParticle[] = [];
+  for (let i = 0; i < count; i += 1) {
+    particles.push({
+      ring: Math.floor(random(0, 4)),
+      angle: random(0, Math.PI * 2),
+      jitterX: random(-1, 1),
+      jitterY: random(-1, 1),
+      size: random(0.45, 1.5),
+      alpha: random(0.38, 0.92),
+    });
   }
+  return particles;
+}
 
-  const hill = ctx.createLinearGradient(0, ground - 10 * scale, 0, height);
-  hill.addColorStop(0, "#f8fbff");
-  hill.addColorStop(1, "#bde0fe");
-  ctx.fillStyle = hill;
-  ctx.beginPath();
-  ctx.ellipse(cx - 170 * scale, ground + 40 * scale, 270 * scale, 80 * scale, 0, 0, Math.PI * 2);
-  ctx.ellipse(cx + 120 * scale, ground + 44 * scale, 310 * scale, 88 * scale, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.fillStyle = "#8b5a2b";
-  ctx.fillRect(cx - 34 * scale, ground - 50 * scale, 68 * scale, 92 * scale);
-  ctx.fillStyle = "rgba(255,255,255,0.18)";
-  ctx.fillRect(cx - 8 * scale, ground - 48 * scale, 8 * scale, 88 * scale);
-
-  drawTriangle(ctx, cx, top + 64 * scale, 180 * scale, 155 * scale, "#27c46d");
-  drawTriangle(ctx, cx, top + 145 * scale, 270 * scale, 220 * scale, "#0f8f4f");
-  drawTriangle(ctx, cx, top + 255 * scale, 365 * scale, 280 * scale, "#08653b");
-  drawTriangle(ctx, cx, top + 386 * scale, 465 * scale, 335 * scale, "#064a32");
-
-  drawTriangle(ctx, cx - 44 * scale, top + 124 * scale, 76 * scale, 70 * scale, "#2bdc77");
-  drawTriangle(ctx, cx - 82 * scale, top + 226 * scale, 126 * scale, 100 * scale, "#22b966");
-  drawTriangle(ctx, cx - 112 * scale, top + 355 * scale, 160 * scale, 126 * scale, "#118a50");
-
-  drawGarland(ctx, cx, top + 174 * scale, 220 * scale, "#ffd966", frame / 50, scale);
-  drawGarland(ctx, cx, top + 272 * scale, 318 * scale, "#ffb3c1", frame / 45 + 0.8, scale);
-  drawGarland(ctx, cx, top + 405 * scale, 400 * scale, "#9ad7ff", frame / 42 + 1.6, scale);
-
-  drawStar(ctx, cx, top - 34 * scale, 42 * scale, 18 * scale, "#ffd966");
-  drawStar(ctx, cx, top - 34 * scale, 23 * scale, 9 * scale, "#fff7ad");
-
-  for (const item of ornaments) {
-    const x = cx + item.x * scale;
-    const y = top + 290 * scale + item.y * scale;
-    const glow = 1 + Math.sin(frame / 18 + item.x) * 0.08;
-    ctx.fillStyle = item.color;
-    ctx.beginPath();
-    ctx.arc(x, y, item.r * scale * glow, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "rgba(255,255,255,0.82)";
-    ctx.beginPath();
-    ctx.arc(x - item.r * scale * 0.32, y - item.r * scale * 0.32, item.r * scale * 0.22, 0, Math.PI * 2);
-    ctx.fill();
+function createSnowParticles(count: number, width: number, height: number) {
+  const particles: SnowParticle[] = [];
+  for (let i = 0; i < count; i += 1) {
+    particles.push({
+      x: random(0, width),
+      y: random(height * 0.1, height * 0.96),
+      size: random(0.45, 1.55),
+      speed: random(0.16, 0.62),
+      drift: random(-0.15, 0.15),
+      alpha: random(0.24, 0.86),
+      phase: random(0, Math.PI * 2),
+    });
   }
+  return particles;
+}
 
-  drawHeart(ctx, cx - 12 * scale, top + 300 * scale, 18 * scale);
+function createHeartParticles(count: number) {
+  const particles: HeartParticle[] = [];
+  for (let i = 0; i < count; i += 1) {
+    const t = random(0, Math.PI * 2);
+    const x = 16 * Math.pow(Math.sin(t), 3);
+    const y = -(
+      13 * Math.cos(t) -
+      5 * Math.cos(2 * t) -
+      2 * Math.cos(3 * t) -
+      Math.cos(4 * t)
+    );
+    const fill = Math.sqrt(Math.random());
+    particles.push({
+      x: x * fill,
+      y: y * fill,
+      size: random(0.65, 1.55),
+      alpha: random(0.5, 0.95),
+      twinkle: random(0, Math.PI * 2),
+    });
+  }
+  return particles;
+}
+
+function particleColor(tone: number, pulse: number) {
+  if (tone > 0.78) {
+    return `rgba(255,255,255,${0.72 + pulse * 0.22})`;
+  }
+  if (tone > 0.42) {
+    return `rgba(255,214,226,${0.58 + pulse * 0.28})`;
+  }
+  return `rgba(255,118,154,${0.5 + pulse * 0.24})`;
 }
 
 export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [recipient, setRecipient] = useState("you");
-  const [sender, setSender] = useState("");
-  const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    setRecipient(params.get("to") || "you");
-    setSender(params.get("from") || "");
-  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -208,77 +173,131 @@ export default function Home() {
       return;
     }
 
-    const flakes: Flake[] = [];
-    const sparkles: Sparkle[] = [];
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     let animation = 0;
     let frame = 0;
+    let width = 0;
+    let height = 0;
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const treeParticles = createTreeParticles(6400);
+    const ringParticles = createRingParticles(3300);
+    const heartParticles = createHeartParticles(260);
+    let snowParticles: SnowParticle[] = [];
 
     const resize = () => {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      canvas.width = Math.floor(window.innerWidth * dpr);
-      canvas.height = Math.floor(window.innerHeight * dpr);
-      canvas.style.width = `${window.innerWidth}px`;
-      canvas.style.height = `${window.innerHeight}px`;
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = Math.floor(width * dpr);
+      canvas.height = Math.floor(height * dpr);
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-      flakes.length = 0;
-      sparkles.length = 0;
-      for (let i = 0; i < 95; i += 1) {
-        flakes.push({
-          x: rand(0, window.innerWidth),
-          y: rand(0, window.innerHeight),
-          radius: rand(0.9, 2.7),
-          speed: rand(0.45, 1.8),
-          drift: rand(-0.35, 0.35),
-          phase: rand(0, Math.PI * 2),
-        });
-      }
-      for (let i = 0; i < 42; i += 1) {
-        sparkles.push({
-          x: rand(window.innerWidth * 0.25, window.innerWidth * 0.75),
-          y: rand(window.innerHeight * 0.18, window.innerHeight * 0.72),
-          radius: rand(1.2, 2.8),
-          phase: rand(0, Math.PI * 2),
-          color: ["#ffd966", "#fff7ad", "#bde0fe", "#ffffff"][i % 4],
-        });
-      }
+      snowParticles = createSnowParticles(Math.max(360, Math.floor((width * height) / 1800)), width, height);
     };
 
-    const tick = () => {
+    const drawScene = () => {
       frame += reduceMotion ? 0 : 1;
-      drawTree(ctx, window.innerWidth, window.innerHeight, frame);
+      ctx.clearRect(0, 0, width, height);
 
-      ctx.fillStyle = "rgba(255,255,255,0.88)";
-      for (const flake of flakes) {
+      ctx.fillStyle = "#020403";
+      ctx.fillRect(0, 0, width, height);
+
+      const cx = width * 0.515;
+      const baseY = height * 0.82;
+      const treeHeight = Math.min(height * 0.62, width * 0.72, 460);
+      const baseRadius = Math.min(width * 0.3, treeHeight * 0.52);
+      const topY = baseY - treeHeight;
+      const scale = treeHeight / 470;
+
+      drawGlow(ctx, cx, baseY - treeHeight * 0.27, baseRadius * 1.35, "rgba(255,142,178,0.34)");
+      drawGlow(ctx, cx, baseY - treeHeight * 0.06, baseRadius * 1.15, "rgba(255,255,255,0.34)");
+
+      for (const flake of snowParticles) {
         if (!reduceMotion) {
           flake.y += flake.speed;
-          flake.x += flake.drift + Math.sin(frame / 24 + flake.phase) * 0.18;
-          if (flake.y > window.innerHeight + 8) {
-            flake.y = -8;
-            flake.x = rand(0, window.innerWidth);
+          flake.x += flake.drift + Math.sin(frame / 70 + flake.phase) * 0.08;
+          if (flake.y > height + 8) {
+            flake.y = height * 0.08;
+            flake.x = random(0, width);
           }
         }
+        ctx.fillStyle = `rgba(255,255,255,${flake.alpha})`;
         ctx.beginPath();
-        ctx.arc(flake.x, flake.y, flake.radius, 0, Math.PI * 2);
+        ctx.arc(flake.x, flake.y, flake.size * scale, 0, Math.PI * 2);
         ctx.fill();
       }
 
-      for (const sparkle of sparkles) {
-        const pulse = reduceMotion ? 0.55 : (Math.sin(frame / 13 + sparkle.phase) + 1) / 2;
-        ctx.fillStyle = sparkle.color;
-        ctx.globalAlpha = 0.35 + pulse * 0.5;
+      const ringWidths = [0.55, 0.78, 1.02, 1.24];
+      for (const point of ringParticles) {
+        const wobble = Math.sin(frame / 120 + point.angle * 2 + point.ring) * 0.012;
+        const angle = point.angle + wobble;
+        const ringWidth = width * ringWidths[point.ring] * 0.5;
+        const ringHeight = height * (0.055 + point.ring * 0.015);
+        const x = cx + Math.cos(angle) * ringWidth + point.jitterX * 9 * scale;
+        const y = baseY + Math.sin(angle) * ringHeight + point.jitterY * 5 * scale;
+        const frontBoost = Math.sin(angle) > 0 ? 0.18 : -0.06;
+        ctx.fillStyle = `rgba(245,250,255,${Math.max(0.1, point.alpha + frontBoost)})`;
         ctx.beginPath();
-        ctx.arc(sparkle.x, sparkle.y, sparkle.radius + pulse * 2.4, 0, Math.PI * 2);
+        ctx.arc(x, y, point.size * scale, 0, Math.PI * 2);
         ctx.fill();
       }
-      ctx.globalAlpha = 1;
 
-      animation = window.requestAnimationFrame(tick);
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+
+      for (const point of treeParticles) {
+        const branchWave = Math.sin(point.height * Math.PI * 11 + point.angle * 0.6);
+        const spiral = point.angle + point.height * 14.2 + frame * 0.008;
+        const breathing = 1 + Math.sin(frame / 90 + point.twinkle) * 0.025;
+        const topSpread = point.height > 0.82 ? (point.height - 0.82) * 0.13 : 0;
+        const radius = baseRadius * (point.radius + point.branch + branchWave * 0.026 + topSpread) * breathing;
+        const x = cx + Math.cos(spiral) * radius;
+        const y = baseY - point.height * treeHeight + Math.sin(spiral * 2.1) * 6.5 * scale;
+        const depth = 0.6 + Math.sin(spiral) * 0.3;
+        const pulse = (Math.sin(frame / 16 + point.twinkle) + 1) / 2;
+        const spineFade = point.height > 0.86 ? 0.72 : 1;
+        const size = point.size * scale * spineFade * (0.78 + depth * 0.42 + pulse * 0.3);
+
+        ctx.fillStyle = particleColor(point.tone, pulse * point.alpha);
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (point.tone > 0.93 && pulse > 0.62) {
+          ctx.fillStyle = `rgba(255,255,255,${0.28 * pulse})`;
+          ctx.beginPath();
+          ctx.arc(x, y, size * 2.8, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      drawGlow(ctx, cx, baseY - treeHeight * 0.05, baseRadius * 0.56, "rgba(255,255,255,0.34)");
+      drawGlow(ctx, cx, baseY - treeHeight * 0.48, baseRadius * 0.5, "rgba(255,164,190,0.34)");
+
+      const heartScale = Math.max(0.74, scale) * 1.05;
+      const heartY = topY - 20 * scale;
+      drawGlow(ctx, cx, heartY, 44 * heartScale, "rgba(255,122,160,0.34)");
+      drawHeartShape(ctx, cx, heartY + 2 * heartScale, 16 * heartScale, frame);
+      for (const heart of heartParticles) {
+        const pulse = (Math.sin(frame / 12 + heart.twinkle) + 1) / 2;
+        ctx.fillStyle = `rgba(255,226,235,${heart.alpha * 0.72})`;
+        ctx.beginPath();
+        ctx.arc(
+          cx + heart.x * heartScale,
+          heartY + heart.y * heartScale,
+          heart.size * heartScale * 0.72 * (0.8 + pulse * 0.32),
+          0,
+          Math.PI * 2,
+        );
+        ctx.fill();
+      }
+      ctx.restore();
+
+      animation = window.requestAnimationFrame(drawScene);
     };
 
     resize();
-    tick();
+    drawScene();
     window.addEventListener("resize", resize);
 
     return () => {
@@ -287,93 +306,11 @@ export default function Home() {
     };
   }, []);
 
-  const shareUrl = (nextRecipient = recipient, nextSender = sender) => {
-    const url = new URL(window.location.href);
-    const cleanRecipient = nextRecipient.trim();
-    const cleanSender = nextSender.trim();
-
-    if (cleanRecipient && cleanRecipient !== "you") {
-      url.searchParams.set("to", cleanRecipient);
-    } else {
-      url.searchParams.delete("to");
-    }
-
-    if (cleanSender) {
-      url.searchParams.set("from", cleanSender);
-    } else {
-      url.searchParams.delete("from");
-    }
-
-    return url.toString();
-  };
-
-  const updateUrl = (nextRecipient: string, nextSender: string) => {
-    const url = shareUrl(nextRecipient, nextSender);
-    window.history.replaceState(null, "", url);
-    setCopied(false);
-  };
-
-  const onRecipientChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const value = event.target.value;
-    setRecipient(value);
-    updateUrl(value, sender);
-  };
-
-  const onSenderChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const value = event.target.value;
-    setSender(value);
-    updateUrl(recipient, value);
-  };
-
-  const copyLink = async () => {
-    await navigator.clipboard.writeText(shareUrl());
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1800);
-  };
-
-  const shareGift = async () => {
-    const url = shareUrl();
-    if (navigator.share) {
-      await navigator.share({
-        title: "Python Christmas Tree",
-        text: wish,
-        url,
-      });
-      return;
-    }
-    await copyLink();
-  };
-
-  const name = recipient.trim() || "you";
-
   return (
-    <main className="gift-stage">
-      <canvas ref={canvasRef} className="tree-canvas" aria-hidden="true" />
-      <section className="gift-message" aria-label="Christmas greeting">
-        <p className="eyebrow">Python Christmas Tree</p>
-        <h1>Merry Christmas, {name}</h1>
-        <p className="wish">{wish}</p>
-        <p className="signature">{sender.trim() ? `From ${sender.trim()}` : "Made with code and starlight"}</p>
-      </section>
-
-      <section className="share-panel" aria-label="Personalize and share">
-        <label>
-          <span>To</span>
-          <input value={recipient} onChange={onRecipientChange} maxLength={36} />
-        </label>
-        <label>
-          <span>From</span>
-          <input value={sender} onChange={onSenderChange} maxLength={36} placeholder="your name" />
-        </label>
-        <div className="actions">
-          <button type="button" onClick={copyLink} aria-label="Copy gift link">
-            {copied ? "Copied" : "Copy link"}
-          </button>
-          <button type="button" className="primary" onClick={shareGift} aria-label="Share gift link">
-            Share
-          </button>
-        </div>
-      </section>
+    <main className="particle-stage" aria-label="Particle Christmas tree scene">
+      <canvas ref={canvasRef} className="particle-canvas" aria-hidden="true" />
+      <p className="christmas-script">Merry Christmas</p>
+      <h1 className="sr-only">Merry Christmas particle tree</h1>
     </main>
   );
 }
