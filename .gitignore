@@ -30,6 +30,7 @@ yarn-error.log*
 dev.*.log
 design-comparison.png
 implementation-*.png
+rotation-*.png
 
 # env files (can opt-in for committing if needed)
 .env*

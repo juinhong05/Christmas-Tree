@@ -177,6 +177,11 @@ export default function Home() {
     let frame = 0;
     let width = 0;
     let height = 0;
+    let rotation = 0;
+    let spinVelocity = 0.0032;
+    let isDragging = false;
+    let lastPointerX = 0;
+    let lastPointerTime = 0;
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const treeParticles = createTreeParticles(6400);
     const ringParticles = createRingParticles(3300);
@@ -195,8 +200,70 @@ export default function Home() {
       snowParticles = createSnowParticles(Math.max(360, Math.floor((width * height) / 1800)), width, height);
     };
 
+    const setDraggingClass = (dragging: boolean) => {
+      canvas.classList.toggle("is-dragging", dragging);
+    };
+
+    const startRotation = (event: PointerEvent) => {
+      isDragging = true;
+      lastPointerX = event.clientX;
+      lastPointerTime = performance.now();
+      spinVelocity = 0;
+      setDraggingClass(true);
+      canvas.setPointerCapture(event.pointerId);
+    };
+
+    const rotateWithPointer = (event: PointerEvent) => {
+      if (!isDragging) {
+        return;
+      }
+
+      const now = performance.now();
+      const deltaX = event.clientX - lastPointerX;
+      const deltaTime = Math.max(16, now - lastPointerTime);
+      rotation += deltaX * 0.012;
+      spinVelocity = (deltaX / deltaTime) * 0.22;
+      lastPointerX = event.clientX;
+      lastPointerTime = now;
+    };
+
+    const stopRotation = (event: PointerEvent) => {
+      if (!isDragging) {
+        return;
+      }
+
+      isDragging = false;
+      setDraggingClass(false);
+      if (canvas.hasPointerCapture(event.pointerId)) {
+        canvas.releasePointerCapture(event.pointerId);
+      }
+    };
+
+    const cancelCapturedRotation = () => {
+      isDragging = false;
+      setDraggingClass(false);
+    };
+
+    const rotateWithKeyboard = (event: KeyboardEvent) => {
+      if (event.key === "ArrowLeft") {
+        rotation -= 0.28;
+        spinVelocity = -0.025;
+      }
+
+      if (event.key === "ArrowRight") {
+        rotation += 0.28;
+        spinVelocity = 0.025;
+      }
+    };
+
     const drawScene = () => {
       frame += reduceMotion ? 0 : 1;
+      if (!reduceMotion) {
+        if (!isDragging) {
+          rotation += spinVelocity;
+          spinVelocity = spinVelocity * 0.985 + 0.0032 * 0.015;
+        }
+      }
       ctx.clearRect(0, 0, width, height);
 
       ctx.fillStyle = "#020403";
@@ -230,7 +297,7 @@ export default function Home() {
       const ringWidths = [0.55, 0.78, 1.02, 1.24];
       for (const point of ringParticles) {
         const wobble = Math.sin(frame / 120 + point.angle * 2 + point.ring) * 0.012;
-        const angle = point.angle + wobble;
+        const angle = point.angle + wobble + rotation * 0.18;
         const ringWidth = width * ringWidths[point.ring] * 0.5;
         const ringHeight = height * (0.055 + point.ring * 0.015);
         const x = cx + Math.cos(angle) * ringWidth + point.jitterX * 9 * scale;
@@ -247,7 +314,7 @@ export default function Home() {
 
       for (const point of treeParticles) {
         const branchWave = Math.sin(point.height * Math.PI * 11 + point.angle * 0.6);
-        const spiral = point.angle + point.height * 14.2 + frame * 0.008;
+        const spiral = point.angle + point.height * 14.2 + frame * 0.008 + rotation;
         const breathing = 1 + Math.sin(frame / 90 + point.twinkle) * 0.025;
         const topSpread = point.height > 0.82 ? (point.height - 0.82) * 0.13 : 0;
         const radius = baseRadius * (point.radius + point.branch + branchWave * 0.026 + topSpread) * breathing;
@@ -280,10 +347,12 @@ export default function Home() {
       drawHeartShape(ctx, cx, heartY + 2 * heartScale, 16 * heartScale, frame);
       for (const heart of heartParticles) {
         const pulse = (Math.sin(frame / 12 + heart.twinkle) + 1) / 2;
+        const heartAngle = rotation * 0.72;
+        const heartX = heart.x * Math.cos(heartAngle) + Math.sin(heartAngle) * heart.size * 0.36;
         ctx.fillStyle = `rgba(255,226,235,${heart.alpha * 0.72})`;
         ctx.beginPath();
         ctx.arc(
-          cx + heart.x * heartScale,
+          cx + heartX * heartScale,
           heartY + heart.y * heartScale,
           heart.size * heartScale * 0.72 * (0.8 + pulse * 0.32),
           0,
@@ -299,16 +368,28 @@ export default function Home() {
     resize();
     drawScene();
     window.addEventListener("resize", resize);
+    window.addEventListener("keydown", rotateWithKeyboard);
+    canvas.addEventListener("pointerdown", startRotation);
+    canvas.addEventListener("pointermove", rotateWithPointer);
+    canvas.addEventListener("pointerup", stopRotation);
+    canvas.addEventListener("pointercancel", stopRotation);
+    canvas.addEventListener("lostpointercapture", cancelCapturedRotation);
 
     return () => {
       window.cancelAnimationFrame(animation);
       window.removeEventListener("resize", resize);
+      window.removeEventListener("keydown", rotateWithKeyboard);
+      canvas.removeEventListener("pointerdown", startRotation);
+      canvas.removeEventListener("pointermove", rotateWithPointer);
+      canvas.removeEventListener("pointerup", stopRotation);
+      canvas.removeEventListener("pointercancel", stopRotation);
+      canvas.removeEventListener("lostpointercapture", cancelCapturedRotation);
     };
   }, []);
 
   return (
     <main className="particle-stage" aria-label="Particle Christmas tree scene">
-      <canvas ref={canvasRef} className="particle-canvas" aria-hidden="true" />
+      <canvas ref={canvasRef} className="particle-canvas" aria-label="Rotatable particle Christmas tree" tabIndex={0} />
       <p className="christmas-script">Merry Christmas</p>
       <h1 className="sr-only">Merry Christmas particle tree</h1>
     </main>

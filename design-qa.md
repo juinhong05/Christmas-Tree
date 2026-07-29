@@ -7,7 +7,7 @@
 **Implementation Checklist**
 - Replaced the drawn tree with a black-stage particle scene.
 - Matched the pink-white particle Christmas tree, snow field, glowing base, circular light rings, left-side script greeting, and heart topper.
-- Checked the browser-rendered page for console errors.
+- Checked the browser-rendered page for console errors and verified drag rotation changes the scene.
 
 **Follow-up Polish**
 - [P3] Increase snow density around the upper tree if an even closer still-frame match is desired.
@@ -28,7 +28,7 @@ spacing and layout rhythm: the tree, heart, greeting, and rings match the refere
 colors and visual tokens: palette matches the reference black background, white snow, white-pink tree particles, pink heart glow, and white base rings.
 image quality and asset fidelity: the scene is rendered as live canvas particles rather than a flat screenshot, preserving the sparkling video-like effect.
 copy and content: visible app-specific copy matches the reference text.
-primary interactions tested: none shown in the reference; the page is an animated visual gift scene.
+primary interactions tested: drag-to-rotate interaction, keyboard left/right rotation nudges, and default animated visual scene.
 console errors checked: yes, no browser console errors were reported.
-comparison history: first pass was too tall and narrow with a less legible heart; the tree cone was widened, the spine softened, the particle count increased, and the heart topper was redrawn before the final comparison.
+comparison history: first pass was too tall and narrow with a less legible heart; the tree cone was widened, the spine softened, the particle count increased, and the heart topper was redrawn before the final comparison. A later interaction pass added drag rotation and confirmed frame changes after dragging.
 final result: passed
