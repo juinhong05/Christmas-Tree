@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type TreeParticle = {
   height: number;
@@ -182,6 +182,19 @@ function particleColor(tone: number, pulse: number, alpha: number) {
 export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [needsMusicStart, setNeedsMusicStart] = useState(false);
+
+  const startMusic = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) {
+      return;
+    }
+
+    void audio.play().then(
+      () => setNeedsMusicStart(false),
+      () => setNeedsMusicStart(true),
+    );
+  }, []);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -190,12 +203,6 @@ export default function Home() {
     }
 
     audio.volume = 0.32;
-    const startMusic = () => {
-      void audio.play().catch(() => {
-        // Some browsers require the first tap or key press before audible audio can start.
-      });
-    };
-
     startMusic();
     window.addEventListener("pointerdown", startMusic, { once: true });
     window.addEventListener("keydown", startMusic, { once: true });
@@ -204,7 +211,7 @@ export default function Home() {
       window.removeEventListener("pointerdown", startMusic);
       window.removeEventListener("keydown", startMusic);
     };
-  }, []);
+  }, [startMusic]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -500,6 +507,11 @@ export default function Home() {
       <audio ref={audioRef} src="/last-christmas.mp3" autoPlay loop preload="auto" />
       <canvas ref={canvasRef} className="particle-canvas" aria-label="Drag left or right to spin the particle Christmas tree; drag upward for a limited top view" tabIndex={0} />
       <p className="christmas-script">Merry Christmas</p>
+      {needsMusicStart && (
+        <button className="music-start-prompt" type="button" onClick={startMusic}>
+          Tap to play Last Christmas
+        </button>
+      )}
       <h1 className="sr-only">Merry Christmas particle tree</h1>
     </main>
   );
