@@ -181,6 +181,30 @@ function particleColor(tone: number, pulse: number, alpha: number) {
 
 export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) {
+      return;
+    }
+
+    audio.volume = 0.32;
+    const startMusic = () => {
+      void audio.play().catch(() => {
+        // Some browsers require the first tap or key press before audible audio can start.
+      });
+    };
+
+    startMusic();
+    window.addEventListener("pointerdown", startMusic, { once: true });
+    window.addEventListener("keydown", startMusic, { once: true });
+
+    return () => {
+      window.removeEventListener("pointerdown", startMusic);
+      window.removeEventListener("keydown", startMusic);
+    };
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -473,6 +497,7 @@ export default function Home() {
 
   return (
     <main className="particle-stage" aria-label="Particle Christmas tree scene">
+      <audio ref={audioRef} src="/last-christmas.mp3" autoPlay loop preload="auto" />
       <canvas ref={canvasRef} className="particle-canvas" aria-label="Drag left or right to spin the particle Christmas tree; drag upward for a limited top view" tabIndex={0} />
       <p className="christmas-script">Merry Christmas</p>
       <h1 className="sr-only">Merry Christmas particle tree</h1>
