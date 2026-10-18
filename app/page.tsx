@@ -82,6 +82,112 @@ function drawHeartShape(ctx: CanvasRenderingContext2D, x: number, y: number, siz
   ctx.stroke();
 }
 
+function drawSantaFlight(ctx: CanvasRenderingContext2D, width: number, height: number, frame: number) {
+  const progress = (frame % 1280) / 1280;
+  const scale = Math.max(0.62, Math.min(1, width / 1180));
+  const x = -250 + progress * (width + 500);
+  const y = Math.max(48, height * 0.13) + Math.sin(frame / 46) * 7;
+  const lead = [58, 108, 158];
+
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  ctx.strokeStyle = "rgba(255, 218, 119, 0.68)";
+  ctx.lineWidth = 1.4;
+  for (let sparkle = 0; sparkle < 7; sparkle += 1) {
+    const trailX = -58 - sparkle * 16;
+    const trailY = Math.sin(frame / 18 + sparkle * 1.8) * 12;
+    const radius = 1.2 + ((sparkle + frame / 12) % 3) * 0.5;
+    ctx.beginPath();
+    ctx.arc(trailX, trailY, radius, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255, 232, 163, 0.78)";
+    ctx.fill();
+  }
+
+  for (let index = 0; index < lead.length; index += 1) {
+    const deerX = lead[index];
+    const deerY = Math.sin(frame / 26 + index * 0.9) * 5 - index * 2;
+
+    ctx.strokeStyle = "rgba(246, 209, 164, 0.58)";
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(-20, -6);
+    ctx.quadraticCurveTo(deerX - 18, deerY + 3, deerX, deerY);
+    ctx.stroke();
+
+    ctx.fillStyle = "#6c3e27";
+    ctx.beginPath();
+    ctx.ellipse(deerX, deerY, 13, 7, -0.12, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(deerX + 12, deerY - 7, 5, 6, 0.08, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = "#7e4a2e";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(deerX - 7, deerY + 5);
+    ctx.lineTo(deerX - 10, deerY + 14);
+    ctx.moveTo(deerX + 6, deerY + 5);
+    ctx.lineTo(deerX + 9, deerY + 13);
+    ctx.moveTo(deerX + 12, deerY - 11);
+    ctx.lineTo(deerX + 8, deerY - 19);
+    ctx.moveTo(deerX + 12, deerY - 13);
+    ctx.lineTo(deerX + 18, deerY - 18);
+    ctx.stroke();
+
+    ctx.fillStyle = index === 0 ? "#d84242" : "#f0c8a3";
+    ctx.beginPath();
+    ctx.arc(deerX + 16, deerY - 7, index === 0 ? 2.1 : 1.3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.fillStyle = "#9d263b";
+  ctx.beginPath();
+  ctx.moveTo(-52, 4);
+  ctx.quadraticCurveTo(-28, -15, 8, -10);
+  ctx.lineTo(0, 9);
+  ctx.quadraticCurveTo(-25, 13, -48, 11);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = "#f4c86d";
+  ctx.lineWidth = 2.1;
+  ctx.beginPath();
+  ctx.moveTo(-54, 13);
+  ctx.quadraticCurveTo(-27, 23, 6, 13);
+  ctx.quadraticCurveTo(-24, 29, -52, 20);
+  ctx.stroke();
+
+  ctx.fillStyle = "#d23b42";
+  ctx.beginPath();
+  ctx.ellipse(-22, -23, 10, 15, -0.3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#f6d1ad";
+  ctx.beginPath();
+  ctx.arc(-20, -39, 7, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#d62f3b";
+  ctx.beginPath();
+  ctx.moveTo(-28, -43);
+  ctx.lineTo(-20, -57);
+  ctx.lineTo(-12, -43);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "#fff5ea";
+  ctx.beginPath();
+  ctx.arc(-20, -57, 3.4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(-17, -35, 6, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
 function createTreeParticles(count: number) {
   const particles: TreeParticle[] = [];
   const branchTiers = [0.07, 0.17, 0.28, 0.4, 0.52, 0.64, 0.75, 0.85, 0.94];
@@ -182,6 +288,7 @@ function particleColor(tone: number, pulse: number, alpha: number) {
 export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const surpriseActiveRef = useRef(false);
   const [needsMusicStart, setNeedsMusicStart] = useState(false);
 
   const startMusic = useCallback(() => {
@@ -195,6 +302,12 @@ export default function Home() {
       () => setNeedsMusicStart(true),
     );
   }, []);
+
+  const revealSurprise = useCallback(() => {
+    surpriseActiveRef.current = true;
+    setNeedsMusicStart(false);
+    startMusic();
+  }, [startMusic]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -226,6 +339,7 @@ export default function Home() {
 
     let animation = 0;
     let frame = 0;
+    let surpriseFrame = 0;
     let width = 0;
     let height = 0;
     let rotation = 0;
@@ -346,6 +460,11 @@ export default function Home() {
 
       ctx.fillStyle = "#020403";
       ctx.fillRect(0, 0, width, height);
+
+      if (surpriseActiveRef.current) {
+        surpriseFrame += reduceMotion ? 0.25 : 1;
+        drawSantaFlight(ctx, width, height, surpriseFrame);
+      }
 
       const cx = width * 0.515;
       const baseY = height * 0.82;
@@ -503,13 +622,13 @@ export default function Home() {
   }, []);
 
   return (
-    <main className="particle-stage" aria-label="Particle Christmas tree scene">
+    <main className="particle-stage" aria-label="Particle Christmas tree scene" onPointerDown={revealSurprise}>
       <audio ref={audioRef} src="/last-christmas.mp3" autoPlay loop preload="auto" />
       <canvas ref={canvasRef} className="particle-canvas" aria-label="Drag left or right to spin the particle Christmas tree; drag upward for a limited top view" tabIndex={0} />
       <p className="christmas-script">Merry Christmas</p>
       {needsMusicStart && (
         <button className="music-start-prompt" type="button" onClick={startMusic}>
-          Tap to play Last Christmas
+          Tap for surprise
         </button>
       )}
       <h1 className="sr-only">Merry Christmas particle tree</h1>
