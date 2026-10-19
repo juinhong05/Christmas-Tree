@@ -651,7 +651,6 @@ export default function Home() {
       <p className="christmas-script">Merry Christmas</p>
       {needsMusicStart && (
         <button className="music-start-prompt" type="button" onClick={startMusic}>
-          <span className="music-start-kicker">Christmas magic</span>
           <span>Tap for surprise</span>
         </button>
       )}
