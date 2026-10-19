@@ -87,7 +87,7 @@ function drawSantaFlight(ctx: CanvasRenderingContext2D, width: number, height: n
   const scale = Math.max(0.62, Math.min(1, width / 1180));
   const x = -250 + progress * (width + 500);
   const y = Math.max(48, height * 0.13) + Math.sin(frame / 46) * 7;
-  const lead = [58, 108, 158];
+  const lead = [42, 80, 118, 156, 194, 232];
 
   ctx.save();
   ctx.translate(x, y);
@@ -161,6 +161,29 @@ function drawSantaFlight(ctx: CanvasRenderingContext2D, width: number, height: n
   ctx.quadraticCurveTo(-27, 23, 6, 13);
   ctx.quadraticCurveTo(-24, 29, -52, 20);
   ctx.stroke();
+
+  const gifts = [
+    { x: -50, y: -10, width: 13, height: 10, color: "#c9304b" },
+    { x: -38, y: -15, width: 12, height: 14, color: "#d98a2c" },
+    { x: -57, y: -20, width: 11, height: 11, color: "#b93676" },
+  ];
+  for (const gift of gifts) {
+    ctx.fillStyle = gift.color;
+    ctx.fillRect(gift.x, gift.y, gift.width, gift.height);
+    ctx.strokeStyle = "#f9d779";
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(gift.x + gift.width / 2, gift.y);
+    ctx.lineTo(gift.x + gift.width / 2, gift.y + gift.height);
+    ctx.moveTo(gift.x, gift.y + gift.height * 0.42);
+    ctx.lineTo(gift.x + gift.width, gift.y + gift.height * 0.42);
+    ctx.stroke();
+    ctx.fillStyle = "#fff1c9";
+    ctx.beginPath();
+    ctx.arc(gift.x + gift.width / 2 - 2, gift.y - 1, 2.1, 0, Math.PI * 2);
+    ctx.arc(gift.x + gift.width / 2 + 2, gift.y - 1, 2.1, 0, Math.PI * 2);
+    ctx.fill();
+  }
 
   ctx.fillStyle = "#d23b42";
   ctx.beginPath();
@@ -628,7 +651,8 @@ export default function Home() {
       <p className="christmas-script">Merry Christmas</p>
       {needsMusicStart && (
         <button className="music-start-prompt" type="button" onClick={startMusic}>
-          Tap for surprise
+          <span className="music-start-kicker">Christmas magic</span>
+          <span>Tap for surprise</span>
         </button>
       )}
       <h1 className="sr-only">Merry Christmas particle tree</h1>
