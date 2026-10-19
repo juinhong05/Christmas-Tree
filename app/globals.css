@@ -90,37 +90,38 @@ body {
   min-width: 182px;
   min-height: 54px;
   padding: 8px 22px 10px;
-  border: 1px solid rgba(255, 226, 170, 0.7);
+  border: 1px solid rgba(255, 238, 244, 0.92);
   border-radius: 6px;
   background:
-    linear-gradient(135deg, rgba(118, 29, 53, 0.94), rgba(39, 11, 25, 0.88)),
-    rgba(24, 12, 17, 0.84);
+    linear-gradient(135deg, rgba(255, 248, 251, 0.94), rgba(255, 220, 231, 0.88)),
+    rgba(255, 237, 244, 0.86);
   box-shadow:
-    0 0 0 3px rgba(255, 194, 210, 0.1),
-    0 0 26px rgba(255, 126, 164, 0.34),
-    inset 0 1px 0 rgba(255, 246, 223, 0.42);
-  color: rgba(255, 246, 249, 0.96);
+    0 0 0 3px rgba(255, 211, 226, 0.14),
+    0 0 26px rgba(255, 166, 193, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.78);
+  color: #78233f;
   cursor: pointer;
-  font: 650 15px/1.15 "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+  font: 700 17px/1.1 "Palatino Linotype", Georgia, serif;
   letter-spacing: 0;
-  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.42);
+  text-shadow: 0 1px 8px rgba(255, 255, 255, 0.7);
   transform: translateX(-50%);
 }
 
 .music-start-kicker {
   margin-bottom: 3px;
-  color: rgba(255, 225, 163, 0.9);
-  font-size: 11px;
+  color: rgba(150, 61, 91, 0.86);
+  font-family: "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+  font-size: 10px;
   font-weight: 600;
   line-height: 1;
 }
 
 .music-start-prompt:hover,
 .music-start-prompt:focus-visible {
-  border-color: rgba(255, 245, 210, 0.98);
+  border-color: rgba(255, 255, 255, 1);
   background:
-    linear-gradient(135deg, rgba(164, 46, 72, 0.98), rgba(69, 16, 37, 0.94)),
-    rgba(74, 25, 42, 0.84);
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 210, 226, 0.94)),
+    rgba(255, 237, 244, 0.96);
   outline: none;
 }
 
