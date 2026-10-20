@@ -1,32 +1,20 @@
 # Christmas Tree
 
-An interactive particle Christmas tree made with React, Canvas, and Vinext.
-
-The scene is inspired by a glowing Python Christmas tree video: a black stage, pink-white sparkling tree particles, circular light rings, falling snow, a heart topper, and a handwritten "Merry Christmas" greeting.
+An interactive Christmas greeting built with React and the Canvas API. It recreates a sparkling pink-and-white particle tree against a snowy night sky, ready to share as a single link.
 
 ## Live Demo
 
-[Open the Christmas tree](https://python-christmas-tree-20260729.juinhong05314175.chatgpt.site)
+[Open the Christmas tree](https://christmas-tree-six.vercel.app/)
 
-Note: the demo is deployed through OpenAI Sites. If the workspace keeps Sites private, access may require the owner account.
+## Highlights
 
-## Features
-
-- Animated particle Christmas tree with pink and white sparkle effects.
-- Layered branch tiers for a stronger sense of depth and hierarchy.
-- Glowing circular rings around the base.
-- Falling snow and a pulsing heart topper.
-- Drag left or right to rotate the tree.
-- Drag upward for a limited top view of the tree and rings.
-- Keyboard arrow support for rotation and view changes.
-
-## Tech Stack
-
-- React
-- TypeScript
-- Canvas 2D
-- Vinext
-- Tailwind CSS
+- A layered, rotating particle Christmas tree with a glowing heart topper.
+- Falling snow, sparkling branch lights, and animated rings around the base.
+- Left and right drag controls to spin the scene, plus a capped upward view to look over the rings without losing the tree.
+- Background music that starts automatically when allowed by the browser.
+- A small ornament-shaped **Tap for surprise** prompt when a visitor needs to start the music manually.
+- A Santa, reindeer, and gift flight animation after the surprise is tapped.
+- Keyboard arrow controls for rotation and viewing angle.
 
 ## Run Locally
 
@@ -35,16 +23,19 @@ npm install
 npm run dev
 ```
 
-Then open the local URL printed by the dev server.
+Open the local address printed by the development server.
 
-## Build
+## Production Build
 
 ```bash
-npm run build
+npm run build:vercel
 ```
+
+The Vercel-ready static site is generated in `dist/vercel`.
 
 ## Project Structure
 
-- `app/page.tsx` contains the animated particle scene and interaction logic.
-- `app/globals.css` contains the full-screen stage styling.
-- `.openai/hosting.json` contains the OpenAI Sites project metadata.
+- `app/page.tsx` contains the Canvas scene, interaction, audio, and surprise animation.
+- `app/globals.css` contains the full-screen scene and prompt styling.
+- `public/last-christmas.mp3` contains the background music.
+- `vite.vercel.config.ts` and `vercel.json` configure the Vercel static deployment.
