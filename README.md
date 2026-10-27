@@ -6,6 +6,12 @@ An interactive Christmas greeting built with React and the Canvas API. It recrea
 
 [Open the Christmas tree](https://christmas-tree-six.vercel.app/)
 
+## Source
+
+[View the project on GitHub](https://github.com/juinhong05/Christmas-Tree)
+
+The `main` branch is connected to Vercel, so pushes to GitHub automatically update the live experience.
+
 ## Highlights
 
 - A layered, rotating particle Christmas tree with a glowing heart topper.
