@@ -311,18 +311,31 @@ function particleColor(tone: number, pulse: number, alpha: number) {
 export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const musicPageActiveRef = useRef(false);
+  const resumeMusicRef = useRef(false);
   const surpriseActiveRef = useRef(false);
   const [needsMusicStart, setNeedsMusicStart] = useState(false);
 
   const startMusic = useCallback(() => {
     const audio = audioRef.current;
-    if (!audio) {
+    if (!audio || !musicPageActiveRef.current || document.visibilityState !== "visible") {
       return;
     }
 
     void audio.play().then(
-      () => setNeedsMusicStart(false),
-      () => setNeedsMusicStart(true),
+      () => {
+        resumeMusicRef.current = true;
+        if (!musicPageActiveRef.current || document.visibilityState !== "visible") {
+          audio.pause();
+          return;
+        }
+        setNeedsMusicStart(false);
+      },
+      () => {
+        if (musicPageActiveRef.current && document.visibilityState === "visible") {
+          setNeedsMusicStart(true);
+        }
+      },
     );
   }, []);
 
@@ -339,11 +352,48 @@ export default function Home() {
     }
 
     audio.volume = 0.32;
+    musicPageActiveRef.current = document.visibilityState === "visible" && document.hasFocus();
+    const pauseMusic = () => {
+      musicPageActiveRef.current = false;
+      audio.pause();
+    };
+    const restoreMusic = () => {
+      musicPageActiveRef.current = document.visibilityState === "visible" && document.hasFocus();
+      if (musicPageActiveRef.current && resumeMusicRef.current) {
+        startMusic();
+      }
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        restoreMusic();
+      } else {
+        pauseMusic();
+      }
+    };
+    // Also guard native playback (for example, mobile lock-screen media controls).
+    const guardPlayback = () => {
+      if (!musicPageActiveRef.current || document.visibilityState !== "visible") {
+        audio.pause();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("pagehide", pauseMusic);
+    window.addEventListener("pageshow", restoreMusic);
+    window.addEventListener("blur", pauseMusic);
+    window.addEventListener("focus", restoreMusic);
+    audio.addEventListener("play", guardPlayback);
     startMusic();
     window.addEventListener("pointerdown", startMusic, { once: true });
     window.addEventListener("keydown", startMusic, { once: true });
 
     return () => {
+      pauseMusic();
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("pagehide", pauseMusic);
+      window.removeEventListener("pageshow", restoreMusic);
+      window.removeEventListener("blur", pauseMusic);
+      window.removeEventListener("focus", restoreMusic);
+      audio.removeEventListener("play", guardPlayback);
       window.removeEventListener("pointerdown", startMusic);
       window.removeEventListener("keydown", startMusic);
     };
@@ -646,7 +696,7 @@ export default function Home() {
 
   return (
     <main className="particle-stage" aria-label="Particle Christmas tree scene" onPointerDown={revealSurprise}>
-      <audio ref={audioRef} src="/last-christmas.mp3" autoPlay loop preload="auto" />
+      <audio ref={audioRef} src="/last-christmas.mp3" loop preload="auto" />
       <canvas ref={canvasRef} className="particle-canvas" aria-label="Drag left or right to spin the particle Christmas tree; drag upward for a limited top view" tabIndex={0} />
       <p className="christmas-script">Merry Christmas</p>
       {needsMusicStart && (

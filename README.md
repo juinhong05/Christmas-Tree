@@ -18,6 +18,7 @@ The `main` branch is connected to Vercel, so pushes to GitHub automatically upda
 - Falling snow, sparkling branch lights, and animated rings around the base.
 - Left and right drag controls to spin the scene, plus a capped upward view to look over the rings without losing the tree.
 - Background music that starts automatically when allowed by the browser.
+- Music pauses when switching tabs, leaving the page, locking the screen, or switching away from the browser on mobile. Previously started music resumes from its paused position when the page is visible and focused again; if the browser blocks resuming, tap the prompt.
 - A small ornament-shaped **Tap for surprise** prompt when a visitor needs to start the music manually.
 - A Santa, reindeer, and gift flight animation after the surprise is tapped.
 - Keyboard arrow controls for rotation and viewing angle.
@@ -38,6 +39,14 @@ npm run build:vercel
 ```
 
 The Vercel-ready static site is generated in `dist/vercel`.
+
+## Audio Regression Tests
+
+```bash
+node --test tests/audio-lifecycle.test.mjs
+```
+
+These tests cover background pausing, returning to the page, blocked autoplay, cleanup, and pending playback requests.
 
 ## Project Structure
 
