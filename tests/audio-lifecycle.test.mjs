@@ -9,10 +9,10 @@ const source = ts.transpileModule(
   { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } },
 ).outputText;
 
-function mount({ blocked = false, deferred = false } = {}) {
+function mount({ blocked = false, deferred = false, focused = true } = {}) {
   const window = new EventTarget();
   const document = Object.assign(new EventTarget(), {
-    visibilityState: "visible", hasFocus: () => true,
+    visibilityState: "visible", hasFocus: () => focused,
   });
   const audio = Object.assign(new EventTarget(), {
     paused: true, plays: 0,
@@ -27,20 +27,42 @@ function mount({ blocked = false, deferred = false } = {}) {
   });
   let refIndex = 0;
   const effects = [];
+  const prompt = { visible: undefined };
   const exports = {};
   vm.runInNewContext(source, {
     exports, window, document,
     require: (name) => name === "react" ? {
       useRef: (value) => ({ current: ++refIndex === 2 ? audio : value }),
-      useState: () => [false, () => {}],
+      useState: (initial) => {
+        prompt.visible = initial;
+        return [initial, (value) => { prompt.visible = value; }];
+      },
       useCallback: (callback) => callback,
       useEffect: (effect) => effects.push(effect),
     } : { jsx: () => null, jsxs: () => null },
   });
   exports.default();
   const cleanup = effects[0]();
-  return { audio, document, window, cleanup };
+  return { audio, document, window, cleanup, prompt };
 }
+
+test("surprise prompt is present when the page opens without focus", async () => {
+  const { audio, document, window, cleanup, prompt } = mount({ focused: false });
+  assert.equal(audio.plays, 0);
+  assert.equal(prompt.visible, true);
+  document.hasFocus = () => true;
+  window.dispatchEvent(new Event("focus"));
+  await Promise.resolve();
+  assert.equal(prompt.visible, true);
+  cleanup();
+});
+
+test("successful autoplay does not hide the untapped surprise prompt", async () => {
+  const { cleanup, prompt } = mount();
+  await Promise.resolve();
+  assert.equal(prompt.visible, true);
+  cleanup();
+});
 
 test("tab hiding, mobile page exit, and focus loss pause music; return resumes", async () => {
   const { audio, document, window, cleanup } = mount();

@@ -314,7 +314,7 @@ export default function Home() {
   const musicPageActiveRef = useRef(false);
   const resumeMusicRef = useRef(false);
   const surpriseActiveRef = useRef(false);
-  const [needsMusicStart, setNeedsMusicStart] = useState(false);
+  const [needsMusicStart, setNeedsMusicStart] = useState(true);
 
   const startMusic = useCallback(() => {
     const audio = audioRef.current;
@@ -329,7 +329,7 @@ export default function Home() {
           audio.pause();
           return;
         }
-        setNeedsMusicStart(false);
+        setNeedsMusicStart(!surpriseActiveRef.current);
       },
       () => {
         if (musicPageActiveRef.current && document.visibilityState === "visible") {
