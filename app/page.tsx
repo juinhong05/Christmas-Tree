@@ -55,8 +55,12 @@ function drawGlow(ctx: CanvasRenderingContext2D, x: number, y: number, radius: n
 }
 
 function drawStar(ctx: CanvasRenderingContext2D, x: number, y: number, size: number) {
-  drawGlow(ctx, x, y, size * 3, "rgba(255,201,83,0.55)");
-  ctx.fillStyle = "#ffe29a";
+  drawGlow(ctx, x, y, size * 3.2, "rgba(255,201,123,0.38)");
+  const gold = ctx.createLinearGradient(x - size, y - size, x + size, y + size);
+  gold.addColorStop(0, "#fffaf0");
+  gold.addColorStop(0.5, "#ffe4a6");
+  gold.addColorStop(1, "#bc792f");
+  ctx.fillStyle = gold;
   ctx.beginPath();
   for (let i = 0; i < 10; i++) {
     const angle = i * Math.PI / 5 - Math.PI / 2;
@@ -65,26 +69,30 @@ function drawStar(ctx: CanvasRenderingContext2D, x: number, y: number, size: num
   }
   ctx.closePath();
   ctx.fill();
+  ctx.strokeStyle = "#fff4cd";
+  ctx.lineWidth = Math.max(0.5, size * 0.04);
+  ctx.stroke();
 }
 
-function sleighPosition(width: number, height: number, progress: number) {
+function sleighPosition(width: number, height: number, progress: number, direction: number) {
   const scale = Math.max(0.62, Math.min(1, width / 1180));
+  const x = -280 + progress * (width + 560);
   return {
     scale,
-    x: -250 + progress * (width + 500),
+    x: direction > 0 ? x : width - x,
     y: -24 + (Math.max(65, height * 0.16) + 24) * clamp(progress / 0.32, 0, 1)
       + Math.sin(progress * 20) * 7,
   };
 }
 
-function drawSantaFlight(ctx: CanvasRenderingContext2D, width: number, height: number, progress: number) {
-  const { x, y, scale } = sleighPosition(width, height, progress);
-  const frame = progress * 400;
+function drawSantaFlight(ctx: CanvasRenderingContext2D, width: number, height: number, progress: number, direction: number) {
+  const { x, y, scale } = sleighPosition(width, height, progress, direction);
+  const frame = progress * 630;
   const lead = [42, 80, 118, 156, 194, 232];
 
   ctx.save();
   ctx.translate(x, y);
-  ctx.scale(scale, scale);
+  ctx.scale(scale * direction, scale);
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
 
@@ -204,6 +212,41 @@ function drawSantaFlight(ctx: CanvasRenderingContext2D, width: number, height: n
   ctx.restore();
 }
 
+type ProjectPoint = (x: number, y: number, z: number) => { x: number; y: number; perspective: number };
+
+function drawSolidBranches(
+  ctx: CanvasRenderingContext2D, progress: number, height: number, radius: number, rotation: number, project: ProjectPoint,
+) {
+  for (let tier = 0; tier < 8; tier++) {
+    const bottom = tier / 8;
+    if (progress <= bottom) break;
+    const top = Math.min(progress, bottom + 0.23, 1);
+    const spread = radius * Math.pow(1 - bottom, 0.9);
+    const peak = project(0, -height * top, 0);
+    const left = project(-spread, -height * bottom, 0);
+    const right = project(spread, -height * bottom, 0);
+    const shade = ctx.createLinearGradient(left.x, peak.y, right.x, left.y);
+    shade.addColorStop(0, "#0c3829");
+    shade.addColorStop(0.43 + Math.sin(rotation) * 0.10, "#287849");
+    shade.addColorStop(1, "#083022");
+    ctx.fillStyle = shade;
+    ctx.beginPath();
+    ctx.moveTo(peak.x, peak.y);
+    for (let j = 0; j <= 36; j++) {
+      const angle = Math.PI - j * Math.PI / 36;
+      const serration = 0.91 + 0.09 * Math.cos(j * Math.PI / 2 + rotation * 5);
+      const point = project(Math.cos(angle) * spread * serration,
+        -height * bottom + Math.sin(j * Math.PI / 2) * height * 0.008,
+        Math.sin(angle) * spread * 0.48);
+      ctx.lineTo(point.x, point.y);
+    }
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+const santaPasses = 3;
+
 function drawLandedPresents(
   ctx: CanvasRenderingContext2D,
   width: number,
@@ -211,7 +254,7 @@ function drawLandedPresents(
   flightProgress: number,
   baseRadius: number,
   treeScale: number,
-  project: (x: number, y: number, z: number) => { x: number; y: number; perspective: number },
+  project: ProjectPoint,
 ) {
   const gifts = [
     { x: -1.18, z: 0.22, color: "#d83d50", ribbon: "#ffe39e" },
@@ -220,13 +263,19 @@ function drawLandedPresents(
     { x: 1.16, z: 0.17, color: "#7b439e", ribbon: "#fbe9fa" },
   ];
 
-  for (const [i, gift] of gifts.entries()) {
+  for (let index = 0; index < gifts.length * santaPasses; index++) {
+    const i = index % gifts.length;
+    const pass = Math.floor(index / gifts.length);
+    const direction = pass % 2 === 0 ? 1 : -1;
+    const gift = gifts[i];
     const takeoff = 0.4 + i * 0.075;
-    if (flightProgress < takeoff) continue;
-    const launch = sleighPosition(width, height, takeoff);
-    const landing = project(gift.x * baseRadius, 0, gift.z * baseRadius);
-    const t = clamp((flightProgress - takeoff) / 0.24, 0, 1);
-    const launchX = launch.x - 31 * launch.scale;
+    const time = flightProgress - pass - takeoff;
+    if (time < 0) continue;
+    const launch = sleighPosition(width, height, takeoff, direction);
+    const landing = project((gift.x + Math.sign(gift.x) * pass * 0.07) * baseRadius,
+      0, (gift.z + pass * 0.27) * baseRadius);
+    const t = clamp(time / 0.16, 0, 1);
+    const launchX = launch.x - 31 * launch.scale * direction;
     const size = (i % 2 ? 19 : 25) * Math.max(0.55, treeScale) * landing.perspective;
     const x = launchX + (landing.x - launchX) * t;
     const y = launch.y + (landing.y - launch.y) * t * t;
@@ -553,7 +602,7 @@ export default function Home() {
       const treeProgress = clamp(elapsed / 2.4, 0, 1);
       const decorProgress = clamp((elapsed - 2.4) / 2.3, 0, 1);
       const starProgress = clamp((elapsed - 4.7) / 0.65, 0, 1);
-      const flightProgress = (elapsed - 5.7) / 5;
+      const flightProgress = (elapsed - 5.7) / 10;
 
       const cx = width * 0.515;
       const baseY = height * 0.82;
@@ -582,7 +631,6 @@ export default function Home() {
       if (treeProgress > 0) {
         drawGlow(ctx, cx, corePoint.y, baseRadius * treeProgress, "rgba(39,151,76,0.25)");
       }
-      drawGlow(ctx, cx, basePoint.y - treeHeight * 0.06 * pitchCos, baseRadius * (1.08 + pitchAmount * 0.18), "rgba(255,255,255,0.34)");
 
       for (const flake of snowParticles) {
         if (!reduceMotion) {
@@ -599,6 +647,12 @@ export default function Home() {
         ctx.fill();
       }
 
+      if (elapsed < 0) {
+        animation = window.requestAnimationFrame(drawScene);
+        return;
+      }
+
+      drawGlow(ctx, cx, basePoint.y - treeHeight * 0.06 * pitchCos, baseRadius * (1.08 + pitchAmount * 0.18), "rgba(255,255,255,0.34)");
       const ringWidths = [0.55, 0.78, 1.02, 1.24];
       for (const point of ringParticles) {
         const wobble = Math.sin(frame / 120 + point.angle * 2 + point.ring) * 0.012;
@@ -615,6 +669,7 @@ export default function Home() {
         ctx.fill();
       }
 
+      drawSolidBranches(ctx, treeProgress, treeHeight, baseRadius, rotation, projectPoint);
       ctx.save();
       ctx.globalCompositeOperation = "lighter";
 
@@ -690,7 +745,10 @@ export default function Home() {
 
       if (flightProgress >= 0) {
         drawLandedPresents(ctx, width, height, flightProgress, baseRadius, scale, projectPoint);
-        if (flightProgress <= 1) drawSantaFlight(ctx, width, height, flightProgress);
+        const pass = Math.floor(flightProgress);
+        if (pass < santaPasses) {
+          drawSantaFlight(ctx, width, height, flightProgress - pass, pass % 2 === 0 ? 1 : -1);
+        }
       }
 
       animation = window.requestAnimationFrame(drawScene);
@@ -722,7 +780,7 @@ export default function Home() {
     <main className="particle-stage" aria-label="Particle Christmas tree scene">
       <audio ref={audioRef} src="/last-christmas.mp3" loop preload="auto" />
       <canvas ref={canvasRef} className="particle-canvas" aria-label="Drag left or right to spin the particle Christmas tree; drag upward for a limited top view" tabIndex={0} />
-      <p className="christmas-script">Merry Christmas</p>
+      {surpriseActiveRef.current && <p className="christmas-script">Merry Christmas</p>}
       {needsMusicStart && (
         <button className="music-start-prompt" type="button" onClick={revealSurprise}>
           <span>{surpriseActiveRef.current ? "Resume music" : "Tap for Christmas surprise"}</span>
