@@ -256,6 +256,75 @@ function drawSolidBranches(
 
 const santaPasses = 3;
 
+function drawTreeDecorations(
+  ctx: CanvasRenderingContext2D, progress: number, height: number, radius: number,
+  scale: number, rotation: number, project: ProjectPoint,
+) {
+  const fabricWidth = Math.max(2, 6 * scale);
+  ctx.save();
+  ctx.lineCap = "round";
+  for (let ribbon = 0; ribbon < 2; ribbon++) {
+    const segments: [number, number][] = [];
+    const paint = () => {
+      if (segments.length < 2) { segments.length = 0; return; }
+      ctx.beginPath();
+      for (const [i, [x, y]] of segments.entries()) {
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = ribbon === 0 ? "#682031" : "#70512d";
+      ctx.lineWidth = fabricWidth + 2;
+      ctx.stroke();
+      ctx.strokeStyle = ribbon === 0 ? "#bd3c54" : "#dbac63";
+      ctx.lineWidth = fabricWidth;
+      ctx.stroke();
+      ctx.strokeStyle = ribbon === 0 ? "#ee8490" : "#ffe3a7";
+      ctx.lineWidth = Math.max(0.6, fabricWidth * 0.22);
+      ctx.stroke();
+      segments.length = 0;
+    };
+    for (let i = 0; i <= 240 * progress; i++) {
+      const t = 0.12 + i / 240 * 0.78;
+      const angle = rotation + t * 30 + ribbon * Math.PI + 0.23 * Math.sin(t * 23);
+      if (Math.sin(angle) < 0.04) { paint(); continue; }
+      const spread = radius * Math.pow(1 - t, 0.92) * 0.94;
+      const point = project(Math.cos(angle) * spread, -height * t + Math.sin(angle * 2) * fabricWidth, Math.sin(angle) * spread);
+      segments.push([point.x, point.y]);
+    }
+    paint();
+  }
+
+  const colors = ["#e95463", "#edbf65", "#559bd2", "#b584cc", "#dce6e0"];
+  for (let i = 0; i < 44; i++) {
+    const h = 0.15 + i / 43 * 0.74;
+    if ((h - 0.12) / 0.78 > progress) break;
+    const angle = i * 2.39996 + rotation;
+    if (Math.sin(angle) < -0.12) continue;
+    const spread = radius * Math.pow(1 - h, 0.92) * (0.77 + (i % 4) * 0.055);
+    const p = project(Math.cos(angle) * spread, -height * h, Math.sin(angle) * spread);
+    const size = (3.3 + (i * 3 % 7) * 0.65) * Math.max(0.48, scale) * p.perspective;
+    const y = p.y + size * 1.6;
+    ctx.strokeStyle = "#efcb80";
+    ctx.lineWidth = Math.max(0.6, size * 0.14);
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y - size);
+    ctx.lineTo(p.x, y - size);
+    ctx.stroke();
+    const glass = ctx.createRadialGradient(p.x - size * 0.33, y - size * 0.4, 0, p.x, y, size);
+    glass.addColorStop(0, "#fff8ed");
+    glass.addColorStop(0.3, colors[i % colors.length]);
+    glass.addColorStop(0.78, colors[i % colors.length]);
+    glass.addColorStop(1, "#322132");
+    ctx.fillStyle = glass;
+    ctx.beginPath();
+    ctx.ellipse(p.x, y, size * (i % 3 === 0 ? 0.79 : 1), size, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#e6bd76";
+    ctx.fillRect(p.x - size * 0.27, y - size * 1.13, size * 0.54, size * 0.31);
+  }
+  ctx.restore();
+}
+
 function drawLandedPresents(
   ctx: CanvasRenderingContext2D,
   width: number,
@@ -266,10 +335,10 @@ function drawLandedPresents(
   project: ProjectPoint,
 ) {
   const gifts = [
-    { x: -1.18, z: 0.22, color: "#d83d50", ribbon: "#ffe39e" },
-    { x: -0.96, z: 0.45, color: "#326fc2", ribbon: "#e7f4ff" },
-    { x: 0.94, z: 0.36, color: "#ca4740", ribbon: "#ffe39e" },
-    { x: 1.16, z: 0.17, color: "#7b439e", ribbon: "#fbe9fa" },
+    { x: -0.64, z: 0.32, color: "#b42e45", ribbon: "#ffe39e" },
+    { x: -0.34, z: 0.52, color: "#37659c", ribbon: "#e7f4ff" },
+    { x: 0.27, z: 0.57, color: "#ae4238", ribbon: "#ffe39e" },
+    { x: 0.60, z: 0.39, color: "#714582", ribbon: "#fbe9fa" },
   ];
 
   for (let index = 0; index < gifts.length * santaPasses; index++) {
@@ -281,18 +350,40 @@ function drawLandedPresents(
     const time = flightProgress - pass - takeoff;
     if (time < 0) continue;
     const launch = sleighPosition(width, height, takeoff, direction);
-    const landing = project((gift.x + Math.sign(gift.x) * pass * 0.07) * baseRadius,
-      0, (gift.z + pass * 0.27) * baseRadius);
+    const landing = project((gift.x + Math.sin(index * 2.6) * 0.10 + (pass - 1) * 0.13) * baseRadius,
+      0, (gift.z + pass * 0.17) * baseRadius);
     const t = clamp(time / 0.16, 0, 1);
     const launchX = launch.x - 31 * launch.scale * direction;
-    const size = (i % 2 ? 19 : 25) * Math.max(0.55, treeScale) * landing.perspective;
+    const size = (16 + index * 7 % 15) * Math.max(0.57, treeScale) * landing.perspective;
     const x = launchX + (landing.x - launchX) * t;
-    const y = launch.y + (landing.y - launch.y) * t * t;
+    const bounce = Math.sin(Math.PI * clamp((time - 0.16) / 0.035, 0, 1)) * size * 0.16;
+    const y = launch.y + (landing.y - launch.y) * t * t - bounce;
+    if (t > 0.73) {
+      ctx.fillStyle = `rgba(0,0,0,${0.55 * (t - 0.73) / 0.27})`;
+      ctx.beginPath();
+      ctx.ellipse(landing.x + size * 0.1, landing.y - size * 0.04, size * 0.73, size * 0.22, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
     ctx.save();
     ctx.translate(x, y);
-    ctx.rotate(Math.sin(t * Math.PI) * (i % 2 ? -0.55 : 0.55));
+    ctx.rotate(Math.sin(t * Math.PI) * (i % 2 ? -0.55 : 0.55) + Math.sin(index * 1.7) * 0.085);
+    ctx.fillStyle = "#161221";
+    ctx.beginPath();
+    ctx.moveTo(size * 0.5, -size * 0.82);
+    ctx.lineTo(size * 0.72, -size * 0.96);
+    ctx.lineTo(size * 0.72, -size * 0.16);
+    ctx.lineTo(size * 0.5, 0);
+    ctx.fill();
     ctx.fillStyle = gift.color;
     ctx.fillRect(-size / 2, -size * 0.82, size, size * 0.82);
+    ctx.beginPath();
+    ctx.moveTo(-size * 0.5, -size * 0.82);
+    ctx.lineTo(-size * 0.28, -size * 0.96);
+    ctx.lineTo(size * 0.72, -size * 0.96);
+    ctx.lineTo(size * 0.5, -size * 0.82);
+    ctx.fill();
+    ctx.fillStyle = "#ffffff33";
+    ctx.fill();
     ctx.fillStyle = gift.ribbon;
     ctx.fillRect(-size * 0.09, -size * 0.82, size * 0.18, size * 0.82);
     ctx.fillRect(-size / 2, -size * 0.58, size, size * 0.11);
@@ -737,6 +828,7 @@ export default function Home() {
       ctx.restore();
 
       if (decorProgress > 0) {
+        drawTreeDecorations(ctx, decorProgress, treeHeight, baseRadius, scale, rotation, projectPoint);
         const colors = ["#ffe19b", "#ff626e", "#e4f4ff", "#78baff"];
         for (let i = 0; i <= 200; i++) {
           const t = i / 200;
