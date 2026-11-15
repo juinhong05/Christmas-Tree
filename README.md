@@ -1,6 +1,6 @@
 # Christmas Tree
 
-An interactive Christmas greeting built with React and the Canvas API. It recreates a sparkling pink-and-white particle tree against a snowy night sky, ready to share as a single link.
+An interactive Christmas greeting built with React and the Canvas API, featuring a sparkling green tree against a snowy night sky.
 
 ## Live Demo
 
@@ -14,13 +14,12 @@ The `main` branch is connected to Vercel, so pushes to GitHub automatically upda
 
 ## Highlights
 
-- A layered, rotating particle Christmas tree with a glowing heart topper.
+- Tap **Tap for Christmas surprise** to build a green particle tree from the ground up, wrap it in a spiral of lights, and crown it with a gold star.
 - Falling snow, sparkling branch lights, and animated rings around the base.
 - Left and right drag controls to spin the scene, plus a capped upward view to look over the rings without losing the tree.
 - Background music that starts automatically when allowed by the browser.
 - Music pauses when switching tabs, leaving the page, locking the screen, or switching away from the browser on mobile. Previously started music resumes from its paused position when the page is visible and focused again; if the browser blocks resuming, tap the prompt.
-- A small ornament-shaped **Tap for surprise** prompt visible from the first render, including when autoplay succeeds or the page initially loads without focus. Tapping reveals the surprise and starts the music when needed.
-- A Santa, reindeer, and gift flight animation after the surprise is tapped.
+- Santa and his reindeer fly over the finished tree, dropping presents that land beside it and stay there.
 - Keyboard arrow controls for rotation and viewing angle.
 
 ## Run Locally

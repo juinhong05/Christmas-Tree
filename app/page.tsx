@@ -35,14 +35,6 @@ type SnowParticle = {
   phase: number;
 };
 
-type HeartParticle = {
-  x: number;
-  y: number;
-  size: number;
-  alpha: number;
-  twinkle: number;
-};
-
 function random(min: number, max: number) {
   return min + Math.random() * (max - min);
 }
@@ -62,31 +54,32 @@ function drawGlow(ctx: CanvasRenderingContext2D, x: number, y: number, radius: n
   ctx.fill();
 }
 
-function drawHeartShape(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, frame: number) {
-  const pulse = 1 + Math.sin(frame / 24) * 0.035;
-  const s = size * pulse;
-  const gradient = ctx.createRadialGradient(x - s * 0.18, y - s * 0.22, 0, x, y, s * 1.2);
-  gradient.addColorStop(0, "rgba(255,255,255,0.95)");
-  gradient.addColorStop(0.38, "rgba(255,204,218,0.96)");
-  gradient.addColorStop(1, "rgba(255,104,145,0.86)");
-
-  ctx.fillStyle = gradient;
+function drawStar(ctx: CanvasRenderingContext2D, x: number, y: number, size: number) {
+  drawGlow(ctx, x, y, size * 3, "rgba(255,201,83,0.55)");
+  ctx.fillStyle = "#ffe29a";
   ctx.beginPath();
-  ctx.moveTo(x, y + s * 0.62);
-  ctx.bezierCurveTo(x - s * 1.18, y - s * 0.06, x - s * 0.78, y - s * 0.98, x, y - s * 0.44);
-  ctx.bezierCurveTo(x + s * 0.78, y - s * 0.98, x + s * 1.18, y - s * 0.06, x, y + s * 0.62);
+  for (let i = 0; i < 10; i++) {
+    const angle = i * Math.PI / 5 - Math.PI / 2;
+    const radius = i % 2 ? size * 0.44 : size;
+    ctx.lineTo(x + Math.cos(angle) * radius, y + Math.sin(angle) * radius);
+  }
+  ctx.closePath();
   ctx.fill();
-
-  ctx.strokeStyle = "rgba(255,255,255,0.62)";
-  ctx.lineWidth = Math.max(1, size * 0.07);
-  ctx.stroke();
 }
 
-function drawSantaFlight(ctx: CanvasRenderingContext2D, width: number, height: number, frame: number) {
-  const progress = (frame % 1280) / 1280;
+function sleighPosition(width: number, height: number, progress: number) {
   const scale = Math.max(0.62, Math.min(1, width / 1180));
-  const x = -250 + progress * (width + 500);
-  const y = Math.max(48, height * 0.13) + Math.sin(frame / 46) * 7;
+  return {
+    scale,
+    x: -250 + progress * (width + 500),
+    y: -24 + (Math.max(65, height * 0.16) + 24) * clamp(progress / 0.32, 0, 1)
+      + Math.sin(progress * 20) * 7,
+  };
+}
+
+function drawSantaFlight(ctx: CanvasRenderingContext2D, width: number, height: number, progress: number) {
+  const { x, y, scale } = sleighPosition(width, height, progress);
+  const frame = progress * 400;
   const lead = [42, 80, 118, 156, 194, 232];
 
   ctx.save();
@@ -211,6 +204,51 @@ function drawSantaFlight(ctx: CanvasRenderingContext2D, width: number, height: n
   ctx.restore();
 }
 
+function drawLandedPresents(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  flightProgress: number,
+  baseRadius: number,
+  treeScale: number,
+  project: (x: number, y: number, z: number) => { x: number; y: number; perspective: number },
+) {
+  const gifts = [
+    { x: -1.18, z: 0.22, color: "#d83d50", ribbon: "#ffe39e" },
+    { x: -0.96, z: 0.45, color: "#326fc2", ribbon: "#e7f4ff" },
+    { x: 0.94, z: 0.36, color: "#ca4740", ribbon: "#ffe39e" },
+    { x: 1.16, z: 0.17, color: "#7b439e", ribbon: "#fbe9fa" },
+  ];
+
+  for (const [i, gift] of gifts.entries()) {
+    const takeoff = 0.4 + i * 0.075;
+    if (flightProgress < takeoff) continue;
+    const launch = sleighPosition(width, height, takeoff);
+    const landing = project(gift.x * baseRadius, 0, gift.z * baseRadius);
+    const t = clamp((flightProgress - takeoff) / 0.24, 0, 1);
+    const launchX = launch.x - 31 * launch.scale;
+    const size = (i % 2 ? 19 : 25) * Math.max(0.55, treeScale) * landing.perspective;
+    const x = launchX + (landing.x - launchX) * t;
+    const y = launch.y + (landing.y - launch.y) * t * t;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(Math.sin(t * Math.PI) * (i % 2 ? -0.55 : 0.55));
+    ctx.fillStyle = gift.color;
+    ctx.fillRect(-size / 2, -size * 0.82, size, size * 0.82);
+    ctx.fillStyle = gift.ribbon;
+    ctx.fillRect(-size * 0.09, -size * 0.82, size * 0.18, size * 0.82);
+    ctx.fillRect(-size / 2, -size * 0.58, size, size * 0.11);
+    ctx.strokeStyle = gift.ribbon;
+    ctx.lineWidth = Math.max(1, size * 0.07);
+    ctx.beginPath();
+    ctx.moveTo(0, -size * 0.82);
+    ctx.bezierCurveTo(-size * 0.66, -size * 0.99, -size * 0.18, -size * 1.26, 0, -size * 0.82);
+    ctx.bezierCurveTo(size * 0.18, -size * 1.26, size * 0.66, -size * 0.99, 0, -size * 0.82);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
 function createTreeParticles(count: number) {
   const particles: TreeParticle[] = [];
   const branchTiers = [0.07, 0.17, 0.28, 0.4, 0.52, 0.64, 0.75, 0.85, 0.94];
@@ -275,37 +313,14 @@ function createSnowParticles(count: number, width: number, height: number) {
   return particles;
 }
 
-function createHeartParticles(count: number) {
-  const particles: HeartParticle[] = [];
-  for (let i = 0; i < count; i += 1) {
-    const t = random(0, Math.PI * 2);
-    const x = 16 * Math.pow(Math.sin(t), 3);
-    const y = -(
-      13 * Math.cos(t) -
-      5 * Math.cos(2 * t) -
-      2 * Math.cos(3 * t) -
-      Math.cos(4 * t)
-    );
-    const fill = Math.sqrt(Math.random());
-    particles.push({
-      x: x * fill,
-      y: y * fill,
-      size: random(0.65, 1.55),
-      alpha: random(0.5, 0.95),
-      twinkle: random(0, Math.PI * 2),
-    });
-  }
-  return particles;
-}
-
 function particleColor(tone: number, pulse: number, alpha: number) {
   if (tone > 0.78) {
-    return `rgba(255,255,255,${clamp((0.56 + pulse * 0.32) * alpha, 0.12, 0.98)})`;
+    return `rgba(152,250,156,${clamp((0.56 + pulse * 0.32) * alpha, 0.12, 0.98)})`;
   }
   if (tone > 0.42) {
-    return `rgba(255,214,226,${clamp((0.48 + pulse * 0.34) * alpha, 0.1, 0.96)})`;
+    return `rgba(58,188,100,${clamp((0.48 + pulse * 0.34) * alpha, 0.1, 0.96)})`;
   }
-  return `rgba(255,118,154,${clamp((0.42 + pulse * 0.32) * alpha, 0.08, 0.9)})`;
+  return `rgba(18,121,67,${clamp((0.42 + pulse * 0.32) * alpha, 0.08, 0.9)})`;
 }
 
 export default function Home() {
@@ -412,7 +427,7 @@ export default function Home() {
 
     let animation = 0;
     let frame = 0;
-    let surpriseFrame = 0;
+    let revealStartedAt: number | undefined;
     let width = 0;
     let height = 0;
     let rotation = 0;
@@ -427,7 +442,6 @@ export default function Home() {
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const treeParticles = createTreeParticles(7600);
     const ringParticles = createRingParticles(3300);
-    const heartParticles = createHeartParticles(260);
     let snowParticles: SnowParticle[] = [];
 
     const resize = () => {
@@ -519,7 +533,7 @@ export default function Home() {
       }
     };
 
-    const drawScene = () => {
+    const drawScene = (now = performance.now()) => {
       frame += reduceMotion ? 0 : 1;
       if (!reduceMotion) {
         if (!isDragging) {
@@ -534,10 +548,12 @@ export default function Home() {
       ctx.fillStyle = "#020403";
       ctx.fillRect(0, 0, width, height);
 
-      if (surpriseActiveRef.current) {
-        surpriseFrame += reduceMotion ? 0.25 : 1;
-        drawSantaFlight(ctx, width, height, surpriseFrame);
-      }
+      if (surpriseActiveRef.current) revealStartedAt ??= now;
+      const elapsed = revealStartedAt === undefined ? -1 : (now - revealStartedAt) / 1000;
+      const treeProgress = clamp(elapsed / 2.4, 0, 1);
+      const decorProgress = clamp((elapsed - 2.4) / 2.3, 0, 1);
+      const starProgress = clamp((elapsed - 4.7) / 0.65, 0, 1);
+      const flightProgress = (elapsed - 5.7) / 5;
 
       const cx = width * 0.515;
       const baseY = height * 0.82;
@@ -561,9 +577,11 @@ export default function Home() {
         };
       };
       const basePoint = projectPoint(0, 0, 0);
-      const corePoint = projectPoint(0, -treeHeight * 0.34, 0);
+      const corePoint = projectPoint(0, -treeHeight * 0.34 * treeProgress, 0);
 
-      drawGlow(ctx, cx, corePoint.y, baseRadius * (1.25 - pitchAmount * 0.28), "rgba(255,142,178,0.34)");
+      if (treeProgress > 0) {
+        drawGlow(ctx, cx, corePoint.y, baseRadius * treeProgress, "rgba(39,151,76,0.25)");
+      }
       drawGlow(ctx, cx, basePoint.y - treeHeight * 0.06 * pitchCos, baseRadius * (1.08 + pitchAmount * 0.18), "rgba(255,255,255,0.34)");
 
       for (const flake of snowParticles) {
@@ -601,6 +619,7 @@ export default function Home() {
       ctx.globalCompositeOperation = "lighter";
 
       for (const point of treeParticles) {
+        if (point.height >= treeProgress) continue;
         const branchWave = Math.sin(point.height * Math.PI * 12.8 + point.angle * 0.6);
         const spiral = point.angle + point.height * 14.2 + frame * 0.008 + rotation;
         const breathing = 1 + Math.sin(frame / 90 + point.twinkle) * 0.025;
@@ -637,37 +656,42 @@ export default function Home() {
         ctx.fill();
 
         if (point.tone > 0.93 && pulse > 0.62) {
-          ctx.fillStyle = `rgba(255,255,255,${0.28 * pulse})`;
+          ctx.fillStyle = `rgba(141,255,168,${0.23 * pulse})`;
           ctx.beginPath();
           ctx.arc(projected.x, projected.y, size * 2.8, 0, Math.PI * 2);
           ctx.fill();
         }
       }
 
-      drawGlow(ctx, cx, basePoint.y - treeHeight * 0.05 * pitchCos, baseRadius * 0.56, "rgba(255,255,255,0.34)");
-      drawGlow(ctx, cx, corePoint.y - treeHeight * 0.14 * pitchCos, baseRadius * 0.5, "rgba(255,164,190,0.34)");
-
-      const heartScale = Math.max(0.74, scale) * 1.05;
-      const heartPoint = projectPoint(0, -treeHeight - 20 * scale, 0);
-      drawGlow(ctx, cx, heartPoint.y, 44 * heartScale * heartPoint.perspective, "rgba(255,122,160,0.34)");
-      drawHeartShape(ctx, cx, heartPoint.y + 2 * heartScale, 16 * heartScale * heartPoint.perspective, frame);
-      for (const heart of heartParticles) {
-        const pulse = (Math.sin(frame / 12 + heart.twinkle) + 1) / 2;
-        const heartAngle = rotation * 0.72;
-        const heartX = heart.x * Math.cos(heartAngle) + Math.sin(heartAngle) * heart.size * 0.36;
-        const heartSpark = projectPoint(heartX * heartScale, -treeHeight - 20 * scale + heart.y * heartScale, 0);
-        ctx.fillStyle = `rgba(255,226,235,${heart.alpha * 0.72})`;
-        ctx.beginPath();
-        ctx.arc(
-          heartSpark.x,
-          heartSpark.y,
-          heart.size * heartScale * heartSpark.perspective * 0.72 * (0.8 + pulse * 0.32),
-          0,
-          Math.PI * 2,
-        );
-        ctx.fill();
-      }
       ctx.restore();
+
+      if (decorProgress > 0) {
+        const colors = ["#ffe19b", "#ff626e", "#e4f4ff", "#78baff"];
+        for (let i = 0; i <= 200; i++) {
+          const t = i / 200;
+          if (t > decorProgress) break;
+          const angle = t * Math.PI * 10 + rotation;
+          const radius = baseRadius * Math.pow(1 - t, 0.86);
+          const light = projectPoint(Math.cos(angle) * radius, -t * treeHeight, Math.sin(angle) * radius);
+          const bulb = i % 6 === 0;
+          ctx.globalAlpha = Math.sin(angle) < 0 ? 0.38 : 1;
+          ctx.fillStyle = bulb ? colors[(i / 6) % colors.length] : "#f5c568";
+          ctx.beginPath();
+          ctx.arc(light.x, light.y, (bulb ? 4 : 1.5) * Math.max(0.45, scale) * light.perspective, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+      }
+
+      if (starProgress > 0) {
+        const top = projectPoint(0, -treeHeight - 14 * scale, 0);
+        drawStar(ctx, top.x, top.y, 20 * Math.max(0.55, scale) * top.perspective * starProgress);
+      }
+
+      if (flightProgress >= 0) {
+        drawLandedPresents(ctx, width, height, flightProgress, baseRadius, scale, projectPoint);
+        if (flightProgress <= 1) drawSantaFlight(ctx, width, height, flightProgress);
+      }
 
       animation = window.requestAnimationFrame(drawScene);
     };
@@ -695,13 +719,13 @@ export default function Home() {
   }, []);
 
   return (
-    <main className="particle-stage" aria-label="Particle Christmas tree scene" onPointerDown={revealSurprise}>
+    <main className="particle-stage" aria-label="Particle Christmas tree scene">
       <audio ref={audioRef} src="/last-christmas.mp3" loop preload="auto" />
       <canvas ref={canvasRef} className="particle-canvas" aria-label="Drag left or right to spin the particle Christmas tree; drag upward for a limited top view" tabIndex={0} />
       <p className="christmas-script">Merry Christmas</p>
       {needsMusicStart && (
-        <button className="music-start-prompt" type="button" onClick={startMusic}>
-          <span>Tap for surprise</span>
+        <button className="music-start-prompt" type="button" onClick={revealSurprise}>
+          <span>{surpriseActiveRef.current ? "Resume music" : "Tap for Christmas surprise"}</span>
         </button>
       )}
       <h1 className="sr-only">Merry Christmas particle tree</h1>
