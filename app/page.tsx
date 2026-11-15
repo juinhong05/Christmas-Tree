@@ -217,26 +217,35 @@ type ProjectPoint = (x: number, y: number, z: number) => { x: number; y: number;
 function drawSolidBranches(
   ctx: CanvasRenderingContext2D, progress: number, height: number, radius: number, rotation: number, project: ProjectPoint,
 ) {
-  for (let tier = 0; tier < 8; tier++) {
-    const bottom = tier / 8;
+  const foot = project(0, 0, 0);
+  const trunkTop = project(0, -height * Math.min(progress, 0.14), 0);
+  const trunkWidth = radius * 0.085;
+  ctx.fillStyle = "#68452f";
+  ctx.fillRect(foot.x - trunkWidth / 2, trunkTop.y, trunkWidth, foot.y - trunkTop.y);
+  ctx.fillStyle = "#9d7047";
+  ctx.fillRect(foot.x - trunkWidth * 0.27, trunkTop.y, trunkWidth * 0.19, foot.y - trunkTop.y);
+
+  const boughs = [0.07, 0.14, 0.23, 0.31, 0.41, 0.5, 0.57, 0.65, 0.73, 0.79, 0.86];
+  for (const [tier, bottom] of boughs.entries()) {
     if (progress <= bottom) break;
-    const top = Math.min(progress, bottom + 0.23, 1);
-    const spread = radius * Math.pow(1 - bottom, 0.9);
-    const peak = project(0, -height * top, 0);
+    const top = Math.min(progress, bottom + 0.18 + 0.035 * Math.sin(tier * 2.7), 1);
+    const spread = radius * Math.pow(1 - bottom, 0.92) * (1 + 0.08 * Math.cos(tier * 3.9));
+    const peak = project(Math.sin(tier * 2.1) * spread * 0.08, -height * top, 0);
     const left = project(-spread, -height * bottom, 0);
     const right = project(spread, -height * bottom, 0);
     const shade = ctx.createLinearGradient(left.x, peak.y, right.x, left.y);
-    shade.addColorStop(0, "#0c3829");
-    shade.addColorStop(0.43 + Math.sin(rotation) * 0.10, "#287849");
-    shade.addColorStop(1, "#083022");
+    shade.addColorStop(0, "#142e24");
+    shade.addColorStop(0.43 + Math.sin(rotation + tier) * 0.10, tier % 2 ? "#39653d" : "#315b39");
+    shade.addColorStop(1, "#0a281e");
     ctx.fillStyle = shade;
     ctx.beginPath();
     ctx.moveTo(peak.x, peak.y);
     for (let j = 0; j <= 36; j++) {
       const angle = Math.PI - j * Math.PI / 36;
-      const serration = 0.91 + 0.09 * Math.cos(j * Math.PI / 2 + rotation * 5);
+      const ripple = Math.cos(angle * 7 + tier * 2.1 + rotation);
+      const serration = 0.90 + 0.10 * ripple + 0.045 * Math.cos(j * 2.4 + tier);
       const point = project(Math.cos(angle) * spread * serration,
-        -height * bottom + Math.sin(j * Math.PI / 2) * height * 0.008,
+        -height * bottom + (ripple * 0.019 + Math.sin(j * 2.7 + tier) * 0.008) * height,
         Math.sin(angle) * spread * 0.48);
       ctx.lineTo(point.x, point.y);
     }
@@ -378,6 +387,7 @@ export default function Home() {
   const musicPageActiveRef = useRef(false);
   const resumeMusicRef = useRef(false);
   const surpriseActiveRef = useRef(false);
+  const [surpriseRevealed, setSurpriseRevealed] = useState(false);
   const [needsMusicStart, setNeedsMusicStart] = useState(true);
 
   const startMusic = useCallback(() => {
@@ -405,6 +415,7 @@ export default function Home() {
 
   const revealSurprise = useCallback(() => {
     surpriseActiveRef.current = true;
+    setSurpriseRevealed(true);
     setNeedsMusicStart(false);
     startMusic();
   }, [startMusic]);
@@ -671,7 +682,6 @@ export default function Home() {
 
       drawSolidBranches(ctx, treeProgress, treeHeight, baseRadius, rotation, projectPoint);
       ctx.save();
-      ctx.globalCompositeOperation = "lighter";
 
       for (const point of treeParticles) {
         if (point.height >= treeProgress) continue;
@@ -705,15 +715,21 @@ export default function Home() {
           projected.perspective *
           (0.64 + depth * 0.38 + pulse * 0.28 + point.tierStrength * 0.26 + point.coreGlow * 0.24);
 
-        ctx.fillStyle = particleColor(point.tone, pulse, layerAlpha);
-        ctx.beginPath();
-        ctx.arc(projected.x, projected.y, size, 0, Math.PI * 2);
-        ctx.fill();
-
-        if (point.tone > 0.93 && pulse > 0.62) {
-          ctx.fillStyle = `rgba(141,255,168,${0.23 * pulse})`;
+        if (point.height > 0.07 && projected.z > -baseRadius * 0.15) {
+          ctx.strokeStyle = particleColor(point.tone, pulse, layerAlpha * 0.55);
+          ctx.lineWidth = Math.max(0.4, size * 0.55);
+          const reach = size * 3.6;
+          const lean = projected.x < cx ? -1 : 1;
           ctx.beginPath();
-          ctx.arc(projected.x, projected.y, size * 2.8, 0, Math.PI * 2);
+          ctx.moveTo(projected.x, projected.y);
+          ctx.lineTo(projected.x + lean * reach, projected.y + reach * (0.28 + Math.sin(point.twinkle) * 0.42));
+          ctx.stroke();
+        }
+
+        if (point.tone > 0.985 && pulse > 0.72) {
+          ctx.fillStyle = `rgba(205,244,200,${0.48 * pulse})`;
+          ctx.beginPath();
+          ctx.arc(projected.x, projected.y, size, 0, Math.PI * 2);
           ctx.fill();
         }
       }
@@ -777,13 +793,13 @@ export default function Home() {
   }, []);
 
   return (
-    <main className="particle-stage" aria-label="Particle Christmas tree scene">
+    <main className="particle-stage" aria-label="Christmas tree scene" onClick={surpriseRevealed ? undefined : revealSurprise}>
       <audio ref={audioRef} src="/last-christmas.mp3" loop preload="auto" />
       <canvas ref={canvasRef} className="particle-canvas" aria-label="Drag left or right to spin the particle Christmas tree; drag upward for a limited top view" tabIndex={0} />
-      {surpriseActiveRef.current && <p className="christmas-script">Merry Christmas</p>}
+      {surpriseRevealed && <p className="christmas-script">Merry Christmas</p>}
       {needsMusicStart && (
-        <button className="music-start-prompt" type="button" onClick={revealSurprise}>
-          <span>{surpriseActiveRef.current ? "Resume music" : "Tap for Christmas surprise"}</span>
+        <button className={surpriseRevealed ? "music-start-prompt" : "music-start-prompt music-start-prompt--centered"} type="button" onClick={surpriseRevealed ? startMusic : undefined}>
+          <span>{surpriseRevealed ? "Resume music" : "Tap for Christmas surprise"}</span>
         </button>
       )}
       <h1 className="sr-only">Merry Christmas particle tree</h1>

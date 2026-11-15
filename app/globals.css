@@ -107,6 +107,12 @@ body {
   transform: translateX(-50%);
 }
 
+.music-start-prompt--centered {
+  top: 50%;
+  bottom: auto;
+  transform: translate(-50%, -50%);
+}
+
 .music-start-prompt::before {
   position: absolute;
   top: -9px;
