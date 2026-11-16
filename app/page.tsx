@@ -341,11 +341,8 @@ function drawTreeDecorations(
   ctx.restore();
 }
 
-function drawLandedPresents(
+function drawPresents(
   ctx: CanvasRenderingContext2D,
-  width: number,
-  height: number,
-  flightProgress: number,
   baseRadius: number,
   treeScale: number,
   project: ProjectPoint,
@@ -358,45 +355,32 @@ function drawLandedPresents(
   ];
 
   const boxes = [];
-  for (let index = 0; index < gifts.length * santaPasses; index++) {
+  for (let index = 0; index < 12; index++) {
     const i = index % gifts.length;
     const pass = Math.floor(index / gifts.length);
-    const direction = pass % 2 === 0 ? 1 : -1;
     const gift = gifts[i];
-    const takeoff = 0.4 + i * 0.075;
-    const time = flightProgress - pass - takeoff;
-    if (time < 0) continue;
-    const launch = sleighPosition(width, height, takeoff, direction);
     const groundX = (gift.x + Math.sin(index * 2.6) * 0.10 + (pass - 1) * 0.13) * baseRadius;
     const groundZ = (gift.z + pass * 0.17) * baseRadius;
     const landing = project(groundX, 0, groundZ);
-    const t = clamp(time / 0.16, 0, 1);
-    const launchX = launch.x - 31 * launch.scale * direction;
     const size = (19 + index * 7 % 17) * Math.max(0.57, treeScale);
-    const x = launchX + (landing.x - launchX) * t;
-    const bounce = Math.sin(Math.PI * clamp((time - 0.16) / 0.035, 0, 1)) * size * 0.16;
-    const y = launch.y + (landing.y - launch.y) * t * t - bounce;
-    boxes.push({ index, gift, landing, groundX, groundZ, t, size, x, y });
+    boxes.push({ index, gift, landing, groundX, groundZ, size });
   }
 
   boxes.sort((a, b) => a.landing.z - b.landing.z);
-  for (const { index, gift, landing, groundX, groundZ, t, size, x, y } of boxes) {
+  for (const { index, gift, landing, groundX, groundZ, size } of boxes) {
     const yaw = 0.27 + Math.sin(index * 2.1) * 0.58;
     const depth = size * (0.71 + index % 3 * 0.1);
     const tall = size * (0.62 + index % 4 * 0.11);
     const point = (u: number, v: number, w: number) => {
       const dx = u * size;
       const dz = w * depth;
-      const p = project(groundX + dx * Math.cos(yaw) - dz * Math.sin(yaw), -v * tall,
+      return project(groundX + dx * Math.cos(yaw) - dz * Math.sin(yaw), -v * tall,
         groundZ + dx * Math.sin(yaw) + dz * Math.cos(yaw));
-      return { ...p, x: p.x + x - landing.x, y: p.y + y - landing.y };
     };
-    if (t > 0.73) {
-      ctx.fillStyle = `rgba(0,0,0,${0.55 * (t - 0.73) / 0.27})`;
-      ctx.beginPath();
-      ctx.ellipse(landing.x + size * 0.1, landing.y - size * 0.04, size * 0.73, size * 0.22, 0, 0, Math.PI * 2);
-      ctx.fill();
-    }
+    ctx.fillStyle = "rgba(0,0,0,0.55)";
+    ctx.beginPath();
+    ctx.ellipse(landing.x + size * 0.1, landing.y - size * 0.04, size * 0.73, size * 0.22, 0, 0, Math.PI * 2);
+    ctx.fill();
     const sides = [
       { map: (u: number, v: number) => point(u, v + 0.5, 0.5), shade: "#00000020" },
       { map: (u: number, v: number) => point(u, v + 0.5, -0.5), shade: "#00000045" },
@@ -880,8 +864,11 @@ export default function Home() {
         drawStar(ctx, top.x, top.y, 20 * Math.max(0.55, scale) * top.perspective * starProgress);
       }
 
+      if (starProgress >= 1) {
+        drawPresents(ctx, baseRadius, scale, projectPoint);
+      }
+
       if (flightProgress >= 0) {
-        drawLandedPresents(ctx, width, height, flightProgress, baseRadius, scale, projectPoint);
         const pass = Math.floor(flightProgress);
         if (pass < santaPasses) {
           drawSantaFlight(ctx, width, height, flightProgress - pass, pass % 2 === 0 ? 1 : -1);

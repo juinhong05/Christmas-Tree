@@ -19,7 +19,7 @@ The `main` branch is connected to Vercel, so pushes to GitHub automatically upda
 - Left and right drag controls to spin the scene, plus a capped upward view to look over the rings without losing the tree.
 - Background music that starts automatically when allowed by the browser.
 - Music pauses when switching tabs, leaving the page, locking the screen, or switching away from the browser on mobile. Previously started music resumes from its paused position when the page is visible and focused again; if the browser blocks resuming, tap the prompt.
-- Santa and his reindeer make three slower passes in alternating directions, dropping twelve presents that stay beside the tree.
+- Twelve presents appear under the finished tree once the star lights up. Santa and his reindeer then make three slow passes overhead.
 - Keyboard arrow controls for rotation and viewing angle.
 
 ## Run Locally
