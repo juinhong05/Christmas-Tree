@@ -212,7 +212,24 @@ function drawSantaFlight(ctx: CanvasRenderingContext2D, width: number, height: n
   ctx.restore();
 }
 
-type ProjectPoint = (x: number, y: number, z: number) => { x: number; y: number; perspective: number };
+type ScenePoint = { x: number; y: number; z: number; perspective: number };
+type ProjectPoint = (x: number, y: number, z: number) => ScenePoint;
+
+function fillFace(ctx: CanvasRenderingContext2D, points: ScenePoint[], color: string) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, points[0].y);
+  for (const point of points.slice(1)) ctx.lineTo(point.x, point.y);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function canopyRadius(h: number, angle: number, radius: number) {
+  const tier = (h * 10.5) % 1;
+  const tips = (Math.cos(angle * 7 + Math.floor(h * 10.5) * 1.9) + 1) / 2;
+  return radius * Math.pow(Math.max(0, 1 - h), 0.87)
+    * (0.76 + 0.22 * (1 - tier) + 0.12 * tips + 0.045 * Math.sin(angle * 13 + h * 31));
+}
 
 function drawSolidBranches(
   ctx: CanvasRenderingContext2D, progress: number, height: number, radius: number, rotation: number, project: ProjectPoint,
@@ -225,33 +242,31 @@ function drawSolidBranches(
   ctx.fillStyle = "#9d7047";
   ctx.fillRect(foot.x - trunkWidth * 0.27, trunkTop.y, trunkWidth * 0.19, foot.y - trunkTop.y);
 
-  const boughs = [0.07, 0.14, 0.23, 0.31, 0.41, 0.5, 0.57, 0.65, 0.73, 0.79, 0.86];
-  for (const [tier, bottom] of boughs.entries()) {
-    if (progress <= bottom) break;
-    const top = Math.min(progress, bottom + 0.18 + 0.035 * Math.sin(tier * 2.7), 1);
-    const spread = radius * Math.pow(1 - bottom, 0.92) * (1 + 0.08 * Math.cos(tier * 3.9));
-    const peak = project(Math.sin(tier * 2.1) * spread * 0.08, -height * top, 0);
-    const left = project(-spread, -height * bottom, 0);
-    const right = project(spread, -height * bottom, 0);
-    const shade = ctx.createLinearGradient(left.x, peak.y, right.x, left.y);
-    shade.addColorStop(0, "#142e24");
-    shade.addColorStop(0.43 + Math.sin(rotation + tier) * 0.10, tier % 2 ? "#39653d" : "#315b39");
-    shade.addColorStop(1, "#0a281e");
-    ctx.fillStyle = shade;
-    ctx.beginPath();
-    ctx.moveTo(peak.x, peak.y);
-    for (let j = 0; j <= 36; j++) {
-      const angle = Math.PI - j * Math.PI / 36;
-      const ripple = Math.cos(angle * 7 + tier * 2.1 + rotation);
-      const serration = 0.90 + 0.10 * ripple + 0.045 * Math.cos(j * 2.4 + tier);
-      const point = project(Math.cos(angle) * spread * serration,
-        -height * bottom + (ripple * 0.019 + Math.sin(j * 2.7 + tier) * 0.008) * height,
-        Math.sin(angle) * spread * 0.48);
-      ctx.lineTo(point.x, point.y);
+  if (progress <= 0.08) return;
+  const sectors = 48;
+  const faces: { points: ScenePoint[]; depth: number; color: string }[] = [];
+  const ring = (h: number) => Array.from({ length: sectors }, (_, i) => {
+    const a = i / sectors * Math.PI * 2;
+    const r = canopyRadius(h, a, radius);
+    return project(Math.cos(a + rotation) * r, -h * height, Math.sin(a + rotation) * r);
+  });
+  let lower = ring(0.08);
+  for (let row = 1; row <= 62; row++) {
+    const h = 0.08 + row / 62 * 0.92;
+    const upper = ring(Math.min(h, progress));
+    for (let i = 0; i < sectors; i++) {
+      const next = (i + 1) % sectors;
+      const points = [lower[i], lower[next], upper[next], upper[i]];
+      const a = (i + 0.5) / sectors * Math.PI * 2 + rotation;
+      const light = 22 + 13 * Math.cos(a - 2.2) + 9 * Math.sin(h * 66) + 6 * Math.sin(i * 7.3 + row * 3.1);
+      faces.push({ points, depth: points.reduce((sum, p) => sum + p.z, 0) / 4,
+        color: `hsl(${143 + Math.sin(i + row) * 9} 43% ${light}%)` });
     }
-    ctx.closePath();
-    ctx.fill();
+    lower = upper;
+    if (h >= progress) break;
   }
+  faces.sort((a, b) => a.depth - b.depth);
+  for (const face of faces) fillFace(ctx, face.points, face.color);
 }
 
 const santaPasses = 3;
@@ -285,9 +300,10 @@ function drawTreeDecorations(
     };
     for (let i = 0; i <= 240 * progress; i++) {
       const t = 0.12 + i / 240 * 0.78;
-      const angle = rotation + t * 30 + ribbon * Math.PI + 0.23 * Math.sin(t * 23);
+      const localAngle = t * 30 + ribbon * Math.PI + 0.23 * Math.sin(t * 23);
+      const angle = rotation + localAngle;
       if (Math.sin(angle) < 0.04) { paint(); continue; }
-      const spread = radius * Math.pow(1 - t, 0.92) * 0.94;
+      const spread = canopyRadius(t, localAngle, radius) * 1.015;
       const point = project(Math.cos(angle) * spread, -height * t + Math.sin(angle * 2) * fabricWidth, Math.sin(angle) * spread);
       segments.push([point.x, point.y]);
     }
@@ -300,7 +316,7 @@ function drawTreeDecorations(
     if ((h - 0.12) / 0.78 > progress) break;
     const angle = i * 2.39996 + rotation;
     if (Math.sin(angle) < -0.12) continue;
-    const spread = radius * Math.pow(1 - h, 0.92) * (0.77 + (i % 4) * 0.055);
+    const spread = canopyRadius(h, i * 2.39996, radius) * 1.015;
     const p = project(Math.cos(angle) * spread, -height * h, Math.sin(angle) * spread);
     const size = (3.3 + (i * 3 % 7) * 0.65) * Math.max(0.48, scale) * p.perspective;
     const y = p.y + size * 1.6;
@@ -341,6 +357,7 @@ function drawLandedPresents(
     { x: 0.60, z: 0.39, color: "#714582", ribbon: "#fbe9fa" },
   ];
 
+  const boxes = [];
   for (let index = 0; index < gifts.length * santaPasses; index++) {
     const i = index % gifts.length;
     const pass = Math.floor(index / gifts.length);
@@ -350,51 +367,63 @@ function drawLandedPresents(
     const time = flightProgress - pass - takeoff;
     if (time < 0) continue;
     const launch = sleighPosition(width, height, takeoff, direction);
-    const landing = project((gift.x + Math.sin(index * 2.6) * 0.10 + (pass - 1) * 0.13) * baseRadius,
-      0, (gift.z + pass * 0.17) * baseRadius);
+    const groundX = (gift.x + Math.sin(index * 2.6) * 0.10 + (pass - 1) * 0.13) * baseRadius;
+    const groundZ = (gift.z + pass * 0.17) * baseRadius;
+    const landing = project(groundX, 0, groundZ);
     const t = clamp(time / 0.16, 0, 1);
     const launchX = launch.x - 31 * launch.scale * direction;
-    const size = (16 + index * 7 % 15) * Math.max(0.57, treeScale) * landing.perspective;
+    const size = (19 + index * 7 % 17) * Math.max(0.57, treeScale);
     const x = launchX + (landing.x - launchX) * t;
     const bounce = Math.sin(Math.PI * clamp((time - 0.16) / 0.035, 0, 1)) * size * 0.16;
     const y = launch.y + (landing.y - launch.y) * t * t - bounce;
+    boxes.push({ index, gift, landing, groundX, groundZ, t, size, x, y });
+  }
+
+  boxes.sort((a, b) => a.landing.z - b.landing.z);
+  for (const { index, gift, landing, groundX, groundZ, t, size, x, y } of boxes) {
+    const yaw = 0.27 + Math.sin(index * 2.1) * 0.58;
+    const depth = size * (0.71 + index % 3 * 0.1);
+    const tall = size * (0.62 + index % 4 * 0.11);
+    const point = (u: number, v: number, w: number) => {
+      const dx = u * size;
+      const dz = w * depth;
+      const p = project(groundX + dx * Math.cos(yaw) - dz * Math.sin(yaw), -v * tall,
+        groundZ + dx * Math.sin(yaw) + dz * Math.cos(yaw));
+      return { ...p, x: p.x + x - landing.x, y: p.y + y - landing.y };
+    };
     if (t > 0.73) {
       ctx.fillStyle = `rgba(0,0,0,${0.55 * (t - 0.73) / 0.27})`;
       ctx.beginPath();
       ctx.ellipse(landing.x + size * 0.1, landing.y - size * 0.04, size * 0.73, size * 0.22, 0, 0, Math.PI * 2);
       ctx.fill();
     }
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(Math.sin(t * Math.PI) * (i % 2 ? -0.55 : 0.55) + Math.sin(index * 1.7) * 0.085);
-    ctx.fillStyle = "#161221";
-    ctx.beginPath();
-    ctx.moveTo(size * 0.5, -size * 0.82);
-    ctx.lineTo(size * 0.72, -size * 0.96);
-    ctx.lineTo(size * 0.72, -size * 0.16);
-    ctx.lineTo(size * 0.5, 0);
-    ctx.fill();
-    ctx.fillStyle = gift.color;
-    ctx.fillRect(-size / 2, -size * 0.82, size, size * 0.82);
-    ctx.beginPath();
-    ctx.moveTo(-size * 0.5, -size * 0.82);
-    ctx.lineTo(-size * 0.28, -size * 0.96);
-    ctx.lineTo(size * 0.72, -size * 0.96);
-    ctx.lineTo(size * 0.5, -size * 0.82);
-    ctx.fill();
-    ctx.fillStyle = "#ffffff33";
-    ctx.fill();
-    ctx.fillStyle = gift.ribbon;
-    ctx.fillRect(-size * 0.09, -size * 0.82, size * 0.18, size * 0.82);
-    ctx.fillRect(-size / 2, -size * 0.58, size, size * 0.11);
+    const sides = [
+      { map: (u: number, v: number) => point(u, v + 0.5, 0.5), shade: "#00000020" },
+      { map: (u: number, v: number) => point(u, v + 0.5, -0.5), shade: "#00000045" },
+      { map: (u: number, v: number) => point(0.5, v + 0.5, u), shade: "#00000045" },
+      { map: (u: number, v: number) => point(-0.5, v + 0.5, u), shade: "#00000045" },
+      { map: (u: number, v: number) => point(u, 1, v), shade: "#ffffff27" },
+    ];
+    sides.sort((a, b) => a.map(0, 0).z - b.map(0, 0).z);
+    for (const { map, shade } of sides) {
+      const face = (u0: number, v0: number, u1: number, v1: number) =>
+        [map(u0, v0), map(u1, v0), map(u1, v1), map(u0, v1)];
+      const panel = face(-0.5, -0.5, 0.5, 0.5);
+      fillFace(ctx, panel, gift.color);
+      fillFace(ctx, panel, shade);
+      fillFace(ctx, face(-0.07, -0.5, 0.07, 0.5), gift.ribbon);
+      if (shade === "#ffffff27") fillFace(ctx, face(-0.5, -0.07, 0.5, 0.07), gift.ribbon);
+    }
+    const bow = point(0, 1, 0);
+    const left = point(-0.31, 1.19, 0.02);
+    const right = point(0.29, 1.22, -0.02);
     ctx.strokeStyle = gift.ribbon;
     ctx.lineWidth = Math.max(1, size * 0.07);
     ctx.beginPath();
-    ctx.moveTo(0, -size * 0.82);
-    ctx.bezierCurveTo(-size * 0.66, -size * 0.99, -size * 0.18, -size * 1.26, 0, -size * 0.82);
-    ctx.bezierCurveTo(size * 0.18, -size * 1.26, size * 0.66, -size * 0.99, 0, -size * 0.82);
+    ctx.moveTo(bow.x, bow.y);
+    ctx.bezierCurveTo(left.x, left.y + size * 0.14, left.x, left.y - size * 0.10, bow.x, bow.y);
+    ctx.bezierCurveTo(right.x, right.y - size * 0.10, right.x, right.y + size * 0.14, bow.x, bow.y);
     ctx.stroke();
-    ctx.restore();
   }
 }
 
